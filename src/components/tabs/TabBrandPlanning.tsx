@@ -72,9 +72,9 @@ export const TabBrandPlanning: React.FC = () => {
   // Sub-tabs: 'GOALS' = Mục Tiêu & Tuyến Ý Tưởng, 'CATEGORIES' = Danh Mục & Tone, 'SCHEDULE' = Lịch Phân Bổ & AI Studio
   const [activeSubTab, setActiveSubTab] = useState<'GOALS' | 'CATEGORIES' | 'SCHEDULE'>('GOALS');
 
-  // Month & Year filter
-  const [selectedMonth, setSelectedMonth] = useState<number>(9);
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  // Month & Year filter - Mặc định tháng & năm thực tế khi mở ứng dụng
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
 
   // Targets
   const [brandingTarget, setBrandingTarget] = useState<number>(4);

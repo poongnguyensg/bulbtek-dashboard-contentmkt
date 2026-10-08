@@ -81,9 +81,9 @@ export const Tab2Planning: React.FC = () => {
 
   const isLight = theme === 'light';
 
-  // Setup panel state
-  const [selectedMonth, setSelectedMonth] = useState<number>(9);
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  // Setup panel state - Mặc định hiển thị tháng & năm thực tế khi mở ứng dụng
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [fbTarget, setFbTarget] = useState<number>(16); // Chỉ cấu hình mục tiêu Social trước là Facebook Channel
   const [tiktokTarget, setTiktokTarget] = useState<number>(0);
   
@@ -1268,11 +1268,32 @@ export const Tab2Planning: React.FC = () => {
         {/* Step Header with Stats & Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-inherit">
           <div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">3</span>
               <h2 className={`text-sm font-black uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 Bước 3: Lịch Phân Bổ Nội Dung Tháng {selectedMonth}/{selectedYear}
               </h2>
+              {/* Quick Month & Year Switcher */}
+              <div className="flex items-center space-x-1.5 ml-1">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className={`rounded-lg px-2 py-0.5 text-xs font-bold border ${isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-[#121215] border-[#2F2F37] text-white'}`}
+                  title="Chọn tháng để xem lịch phân bổ"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                    <option key={m} value={m}>Tháng {m}</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className={`rounded-lg px-2 py-0.5 text-xs font-bold border ${isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-[#121215] border-[#2F2F37] text-white'}`}
+                >
+                  <option value={2026}>2026</option>
+                  <option value={2027}>2027</option>
+                </select>
+              </div>
             </div>
             <div className={`text-xs mt-1 ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
               Tổng số <strong className={isLight ? 'text-slate-900' : 'text-white'}>{totalCount} bài</strong> ({fbCount} Facebook / {tiktokCount} TikTok). Đã hoàn thiện caption: <strong className="text-emerald-600">{generatedCount}/{totalCount} bài ({completionPercentage}%)</strong>.
@@ -1619,10 +1640,43 @@ export const Tab2Planning: React.FC = () => {
             })}
 
             {filteredContents.length === 0 && (
-              <div className={`p-12 text-center rounded-2xl border ${isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-[#121215] border-[#2F2F37] text-gray-400'}`}>
-                <CalendarRange className="w-10 h-10 mx-auto opacity-50 mb-2" />
-                <p className="text-sm font-bold">Không tìm thấy bài viết nào phù hợp với bộ lọc.</p>
-                <p className="text-xs opacity-75 mt-1">Hãy thử xóa từ khóa tìm kiếm hoặc chọn "Tất cả kênh".</p>
+              <div className={`p-10 text-center rounded-2xl border ${isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-[#121215] border-[#2F2F37] text-gray-400'}`}>
+                <CalendarRange className="w-10 h-10 mx-auto opacity-50 mb-3 text-bulbtek-red" />
+                {totalCount === 0 ? (
+                  <>
+                    <p className="text-sm font-bold text-slate-800 dark:text-gray-200">
+                      Chưa có bài viết nào được lên lịch trong Tháng {selectedMonth}/{selectedYear}
+                    </p>
+                    <p className="text-xs opacity-75 mt-1 max-w-md mx-auto">
+                      Bạn có thể bấm tự động tạo kế hoạch phân bổ cho Tháng {selectedMonth} hoặc chuyển sang xem các tháng khác.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-2.5 mt-4">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentStepTab('GOALS')}
+                        className="px-4 py-2 rounded-xl bg-bulbtek-red hover:bg-bulbtek-red-hover text-white text-xs font-bold transition shadow-sm"
+                      >
+                        + Tạo Kế Hoạch Phân Bổ Tháng {selectedMonth}
+                      </button>
+                      {selectedMonth !== 9 && (
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedMonth(9); setSelectedYear(2026); }}
+                          className={`px-3.5 py-2 rounded-xl border text-xs font-semibold transition ${
+                            isLight ? 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700' : 'bg-[#18181D] hover:bg-[#202026] border-[#2A2A32] text-gray-300'
+                          }`}
+                        >
+                          Xem lịch mẫu Tháng 9/2026 (16 bài)
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-bold">Không tìm thấy bài viết nào phù hợp với bộ lọc.</p>
+                    <p className="text-xs opacity-75 mt-1">Hãy thử xóa từ khóa tìm kiếm hoặc chọn "Tất cả kênh".</p>
+                  </>
+                )}
               </div>
             )}
           </div>

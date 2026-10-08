@@ -15,7 +15,9 @@ import {
   X,
   Layers,
   Flame,
-  Award
+  Award,
+  Clock,
+  Headphones
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -47,6 +49,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { activeTab, setActiveTab, contents, theme, currentUser } = useApp();
   const isLight = theme === 'light';
+
+  // Live real-time clock (Giờ - Ngày - Tháng - Năm)
+  const [currentTime, setCurrentTime] = React.useState<Date>(new Date());
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedRealTime = React.useMemo(() => {
+    const hours = String(currentTime.getHours()).padStart(2, '0');
+    const minutes = String(currentTime.getMinutes()).padStart(2, '0');
+    const seconds = String(currentTime.getSeconds()).padStart(2, '0');
+    const day = String(currentTime.getDate()).padStart(2, '0');
+    const month = String(currentTime.getMonth() + 1).padStart(2, '0');
+    const year = currentTime.getFullYear();
+    return `${hours}:${minutes}:${seconds} — ${day}/${month}/${year}`;
+  }, [currentTime]);
 
   // Count pending approval posts
   const pendingCount = contents.filter((c) => c.status === 'Pending').length;
@@ -367,8 +389,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               </div>
 
+              {/* Technical Support & Real-time Clock */}
+              <div
+                className={`p-2 rounded-xl border text-center transition-colors ${
+                  isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#18181D] border-[#2A2A32]'
+                }`}
+              >
+                <div className="flex items-center justify-center space-x-1.5 text-[11px] font-semibold text-bulbtek-red">
+                  <Headphones className="w-3.5 h-3.5 text-bulbtek-red shrink-0" />
+                  <span>Hỗ trợ kỹ thuật: <strong className={isLight ? 'text-slate-900 font-bold' : 'text-white font-bold'}>PoongNguyen</strong></span>
+                </div>
+                <div className="flex items-center justify-center space-x-1.5 text-[10.5px] mt-1 font-mono">
+                  <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                  <span className={isLight ? 'text-slate-600 font-medium' : 'text-gray-300 font-medium'}>
+                    {formattedRealTime}
+                  </span>
+                </div>
+              </div>
+
               {/* Slogan */}
-              <div className="px-1 text-center">
+              <div className="px-1 text-center pt-0.5">
                 <p className={`text-[10px] font-semibold tracking-wide ${isLight ? 'text-slate-400' : 'text-gray-400'}`}>
                   BULBTEK VIỆT NAM
                 </p>
@@ -378,12 +418,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-1">
+            <div className="flex flex-col items-center justify-center py-1 space-y-2">
               <div
                 className="w-8 h-8 rounded-lg bg-gradient-to-br from-bulbtek-red to-red-900 text-white font-bold text-xs flex items-center justify-center shadow-sm"
                 title={`${currentUser.name} (${roleStyle.label})`}
               >
                 {currentUser.name.charAt(0)}
+              </div>
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-amber-500 hover:text-bulbtek-red cursor-pointer transition"
+                title={`Hỗ trợ kỹ thuật: PoongNguyen | ${formattedRealTime}`}
+              >
+                <Clock className="w-4 h-4 animate-pulse" />
               </div>
             </div>
           )}

@@ -1,0 +1,938 @@
+import React, { useState } from 'react';
+import { useApp } from '../../context/AppContext';
+import { Product, ProductLine, ProductStatus, TargetAudience, SuitableVehicle, ProductSegment, ProductStage } from '../../types';
+import { 
+  Database,
+  Plus, 
+  Search, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Zap, 
+  ShieldCheck, 
+  Tag, 
+  SlidersHorizontal,
+  Trash2,
+  Sparkles,
+  Info,
+  Car,
+  FileSpreadsheet,
+  Download
+} from 'lucide-react';
+import { BulkProductImportModal } from '../modals/BulkProductImportModal';
+import { downloadTemplateExcel } from '../../services/productImportService';
+
+const PRODUCT_LINES: ProductLine[] = [
+  'Bi LED',
+  'Bi Gầm',
+  'Bóng LED',
+  'Bi LED Mini',
+  'Trợ Sáng'
+];
+
+const STATUS_OPTIONS: ProductStatus[] = [
+  'Hero Product',
+  'Sản phẩm hiện hữu',
+  'Sản phẩm mới',
+  'Clearance'
+];
+
+export const Tab1Products: React.FC = () => {
+  const { products, selectedProduct, setSelectedProduct, saveProduct, deleteProduct, setActiveTab, setBriefPrefillItem, theme } = useApp();
+  const isLight = theme === 'light';
+  
+  const [selectedLineFilter, setSelectedLineFilter] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [showBulkImportModal, setShowBulkImportModal] = useState<boolean>(false);
+  const [bulkImportNotification, setBulkImportNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  // Form State
+  const [formData, setFormData] = useState<Partial<Product>>(
+    selectedProduct || {
+      name: '',
+      productLine: 'Bi LED',
+      sku: '',
+      status: 'Sản phẩm mới',
+      retailPrice: '',
+      suitableFor: 'Xe ô tô',
+      targetAudience: 'Cả hai',
+      segment: 'Mid',
+      specs: {},
+      coreBenefit: '',
+      stage: 'Growth',
+      internalNotes: ''
+    }
+  );
+
+  // Update form when selectedProduct changes
+  const handleSelectProduct = (prod: Product) => {
+    setSelectedProduct(prod);
+    setFormData(prod);
+    setIsEditing(false);
+    setSaveMessage(null);
+  };
+
+  const handleAddNew = () => {
+    const newProduct: Partial<Product> = {
+      id: `prod-${Date.now()}`,
+      name: '',
+      productLine: 'Bi LED',
+      sku: `BTK-${Date.now().toString().slice(-4)}`,
+      status: 'Sản phẩm mới',
+      retailPrice: '',
+      suitableFor: 'Xe ô tô',
+      targetAudience: 'Cả hai',
+      segment: 'Mid',
+      specs: {
+        chipLed: '',
+        colorTemp: '',
+        brightness: '',
+        power: '',
+        voltage: '12V',
+        lifespan: '50.000 giờ',
+        warranty: '2 năm',
+        compatibility: '',
+        specialFeatures: '',
+        sizeInch: '',
+        waterproof: ''
+      },
+      coreBenefit: '',
+      stage: 'Launch',
+      internalNotes: ''
+    };
+    setSelectedProduct(null);
+    setFormData(newProduct);
+    setIsEditing(true);
+    setSaveMessage(null);
+  };
+
+  const handleDeleteProduct = (prod: { id?: string; name?: string; sku?: string }) => {
+    if (!prod.id) return;
+    const confirmDelete = window.confirm(
+      `Bạn có chắc chắn muốn xóa sản phẩm "${prod.name || 'này'}" ${prod.sku ? `(${prod.sku})` : ''} khỏi hệ thống không?\n\nSản phẩm này sẽ bị gỡ bỏ khỏi kho cấu hình và không xuất hiện trong các kế hoạch content.`
+    );
+    if (confirmDelete) {
+      deleteProduct(prod.id);
+      setBulkImportNotification({
+        message: `🗑️ Đã xóa sản phẩm "${prod.name || prod.sku}" khỏi hệ thống thành công!`,
+        type: 'info'
+      });
+      setTimeout(() => setBulkImportNotification(null), 5000);
+
+      if (selectedProduct?.id === prod.id || formData.id === prod.id) {
+        const remaining = products.filter(p => p.id !== prod.id);
+        if (remaining.length > 0) {
+          handleSelectProduct(remaining[0]);
+        } else {
+          handleAddNew();
+        }
+      }
+    }
+  };
+
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    setIsEditing(true);
+  };
+
+  const handleSpecChange = (specKey: keyof Product['specs'], value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      specs: {
+        ...prev.specs,
+        [specKey]: value
+      }
+    }));
+    setIsEditing(true);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name?.trim()) {
+      alert('Vui lòng nhập tên sản phẩm!');
+      return;
+    }
+    if (!formData.productLine) {
+      alert('Vui lòng chọn Product line!');
+      return;
+    }
+    if (!formData.coreBenefit?.trim()) {
+      alert('Vui lòng nhập Core benefit (Lợi ích chính)!');
+      return;
+    }
+
+    const finalProduct: Product = {
+      id: formData.id || `prod-${Date.now()}`,
+      name: formData.name.trim(),
+      productLine: formData.productLine as ProductLine,
+      sku: formData.sku?.trim() || `BTK-${Date.now().toString().slice(-4)}`,
+      status: (formData.status as ProductStatus) || 'Sản phẩm mới',
+      retailPrice: formData.retailPrice || '',
+      suitableFor: (formData.suitableFor as SuitableVehicle) || 'Xe ô tô',
+      targetAudience: (formData.targetAudience as TargetAudience) || 'Cả hai',
+      segment: (formData.segment as ProductSegment) || 'Mid',
+      specs: formData.specs || {},
+      coreBenefit: formData.coreBenefit.trim(),
+      stage: (formData.stage as ProductStage) || 'Growth',
+      internalNotes: formData.internalNotes || '',
+      imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?w=600&auto=format&fit=crop&q=80',
+      createdAt: formData.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    saveProduct(finalProduct);
+    setSaveMessage('✅ Đã lưu thông tin sản phẩm thành công vào hệ thống!');
+    setTimeout(() => setSaveMessage(null), 3500);
+  };
+
+  // Filter products
+  const filteredProducts = products.filter(p => {
+    const matchesLine = selectedLineFilter === 'ALL' || p.productLine === selectedLineFilter;
+    const matchesSearch = 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.coreBenefit.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesLine && matchesSearch;
+  });
+
+  // Check specs completeness for AI readiness
+  const isReadyForAI = Boolean(formData.name && formData.productLine && formData.coreBenefit);
+  const specCount = formData.specs ? Object.values(formData.specs).filter(v => Boolean(v && v.trim())).length : 0;
+  const isSpecsWeak = specCount < 2;
+
+  const getStatusBadgeColor = (status: ProductStatus) => {
+    switch (status) {
+      case 'Hero Product':
+        return isLight 
+          ? 'bg-red-50 text-red-700 border-red-200' 
+          : 'bg-red-500/20 text-red-400 border-red-500/50';
+      case 'Sản phẩm mới':
+        return isLight 
+          ? 'bg-blue-50 text-blue-700 border-blue-200' 
+          : 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+      case 'Sản phẩm hiện hữu':
+        return isLight 
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+          : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50';
+      case 'Clearance':
+        return isLight 
+          ? 'bg-slate-100 text-slate-600 border-slate-200' 
+          : 'bg-gray-500/20 text-gray-400 border-gray-500/50';
+    }
+  };
+
+  const cardClass = isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#18181D] border-[#2A2A32] shadow-xl';
+  const inputClass = isLight 
+    ? 'w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-bulbtek-red focus:bg-white placeholder-slate-400 transition' 
+    : 'w-full bg-[#121215] border border-[#2F2F37] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-bulbtek-red placeholder-gray-500 transition';
+  const labelClass = isLight ? 'block text-xs font-semibold text-slate-700 mb-1' : 'block text-xs font-semibold text-gray-300 mb-1';
+
+  return (
+    <div className="space-y-6">
+      
+      {/* Top Banner Context */}
+      <div className={`border rounded-2xl p-5 shadow-lg relative overflow-hidden transition-all ${
+        isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#18181D] border-[#2A2A32] shadow-lg'
+      }`}>
+        <div className="absolute right-0 top-0 bottom-0 w-80 bg-gradient-to-l from-bulbtek-red/10 to-transparent pointer-events-none" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className={`p-2 rounded-xl border ${
+                isLight ? 'bg-red-50 text-red-700 border-red-200' : 'bg-bulbtek-red/20 text-red-400 border-bulbtek-red/30'
+              }`}>
+                <Database className="w-5 h-5" />
+              </span>
+              <h1 className={`text-xl font-bold tracking-wide ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                Cấu hình sản phẩm (Product Configuration)
+              </h1>
+            </div>
+            <p className={`text-sm mt-1 max-w-3xl ${isLight ? 'text-slate-600' : 'text-gray-400'}`}>
+              Quản lý và cấu hình toàn bộ danh mục sản phẩm đèn tăng sáng ô tô BULBTEK. Dữ liệu kỹ thuật chuẩn xác và duy nhất để AI trích xuất thông số, tuân thủ nguyên tắc không bịa đặt.
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              onClick={() => setActiveTab(2)}
+              className={`flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                isLight 
+                  ? 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700' 
+                  : 'bg-[#121215] hover:bg-[#202028] border-[#2F2F37] text-gray-300'
+              }`}
+              title="Xem Triết Lý, Sứ Mệnh & Robot BU"
+            >
+              <ShieldCheck className="w-4 h-4 text-bulbtek-red" />
+              <span>Thương Hiệu Bulbtek →</span>
+            </button>
+
+            <button
+              onClick={() => {
+                downloadTemplateExcel();
+                setBulkImportNotification({
+                  message: 'Đã tải xuống biểu mẫu Excel chuẩn Bulbtek (Bulbtek_Mau_Nhap_San_Pham.xlsx)! Bạn hãy điền thông tin theo các cột mẫu rồi bấm "Thêm SP hàng loạt" để đưa vào kho.',
+                  type: 'info'
+                });
+                setTimeout(() => {
+                  setBulkImportNotification(null);
+                }, 8000);
+              }}
+              className={`flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                isLight 
+                  ? 'bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-800 shadow-sm' 
+                  : 'bg-blue-950/30 hover:bg-blue-900/40 border-blue-700/50 text-blue-400'
+              }`}
+              title="Tải biểu mẫu Excel chuẩn Bulbtek gồm 2 sheet: Danh sách SP mẫu và Hướng dẫn quy chuẩn các cột"
+            >
+              <Download className="w-4 h-4 text-blue-500" />
+              <span>📄 Tải biểu mẫu Excel</span>
+            </button>
+
+            <button
+              onClick={() => setShowBulkImportModal(true)}
+              className={`flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                isLight 
+                  ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-800 shadow-sm' 
+                  : 'bg-emerald-950/30 hover:bg-emerald-900/40 border-emerald-700/50 text-emerald-400'
+              }`}
+              title="Nhập sản phẩm hàng loạt từ tệp Excel, CSV hoặc Google Drive / Sheets"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+              <span>📥 Thêm SP hàng loạt</span>
+            </button>
+
+            <button
+              onClick={handleAddNew}
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-bulbtek-red hover:bg-bulbtek-red-hover text-white font-semibold transition-all shadow-glow-red"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Thêm sản phẩm mới</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Bulk Import Notification Toast / Banner */}
+      {bulkImportNotification && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between animate-fadeIn transition-all ${
+          bulkImportNotification.type === 'success'
+            ? isLight ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+            : isLight ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-blue-950/40 border-blue-800/60 text-blue-300'
+        }`}>
+          <div className="flex items-center space-x-2.5 text-sm font-medium">
+            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />
+            <span>{bulkImportNotification.message}</span>
+          </div>
+          <button 
+            onClick={() => setBulkImportNotification(null)}
+            className="text-xs font-medium px-2.5 py-1 rounded bg-black/5 dark:bg-white/10 hover:opacity-80 ml-4 shrink-0 transition"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
+      {/* Main Grid: Left List + Right Form */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* LEFT COLUMN: Product List & Filters */}
+        <div className="lg:col-span-4 space-y-4">
+          
+          {/* Search & Filter Bar */}
+          <div className={`border rounded-xl p-3 space-y-3 ${cardClass}`}>
+            <div className="relative">
+              <Search className={`w-4 h-4 absolute left-3 top-3 ${isLight ? 'text-slate-400' : 'text-gray-400'}`} />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Tìm theo tên, mã SKU..."
+                className={`w-full pl-9 pr-3 py-2 border rounded-lg text-sm transition focus:outline-none focus:border-bulbtek-red ${
+                  isLight 
+                    ? 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white' 
+                    : 'bg-[#121215] border-[#2F2F37] text-gray-200 placeholder-gray-500'
+                }`}
+              />
+            </div>
+
+            {/* Line Filter */}
+            <div className="flex items-center space-x-2">
+              <SlidersHorizontal className={`w-4 h-4 shrink-0 ${isLight ? 'text-slate-400' : 'text-gray-400'}`} />
+              <select
+                value={selectedLineFilter}
+                onChange={(e) => setSelectedLineFilter(e.target.value)}
+                className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-bulbtek-red ${
+                  isLight 
+                    ? 'bg-slate-50 border-slate-200 text-slate-700' 
+                    : 'bg-[#121215] border-[#2F2F37] text-gray-300'
+                }`}
+              >
+                <option value="ALL">Tất cả Product Lines ({products.length})</option>
+                {PRODUCT_LINES.map(line => {
+                  const count = products.filter(p => p.productLine === line).length;
+                  return (
+                    <option key={line} value={line}>{line} ({count})</option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
+          {/* Product Cards List */}
+          <div className="space-y-2 max-h-[720px] overflow-y-auto pr-1">
+            {filteredProducts.map(prod => {
+              const isSelected = selectedProduct?.id === prod.id;
+              const hasWeakSpecs = Object.values(prod.specs || {}).filter(Boolean).length < 2;
+
+              return (
+                <div
+                  key={prod.id}
+                  onClick={() => handleSelectProduct(prod)}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                    isSelected
+                      ? isLight 
+                        ? 'bg-red-50/80 border-bulbtek-red shadow-sm ring-1 ring-bulbtek-red' 
+                        : 'bg-bulbtek-red/10 border-bulbtek-red shadow-glow-red'
+                      : isLight 
+                        ? 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm' 
+                        : 'bg-[#18181D] border-[#2A2A32] hover:border-gray-600'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`font-bold text-base leading-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                          {prod.name}
+                        </span>
+                        {prod.status === 'Hero Product' && (
+                          <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-bulbtek-red"></span>
+                          </span>
+                        )}
+                      </div>
+                      <div className={`text-xs mt-1 font-mono ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
+                        {prod.sku} • <span className={isLight ? 'text-slate-700' : 'text-gray-300'}>{prod.productLine}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getStatusBadgeColor(prod.status)}`}>
+                        {prod.status}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProduct(prod);
+                        }}
+                        className={`p-1.5 rounded-lg transition ${
+                          isLight 
+                            ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' 
+                            : 'text-gray-400 hover:text-red-400 hover:bg-red-950/40'
+                        }`}
+                        title={`Xóa sản phẩm "${prod.name}" nếu không phù hợp`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className={`text-xs mt-2 line-clamp-2 italic ${isLight ? 'text-slate-600' : 'text-gray-300'}`}>
+                    "{prod.coreBenefit}"
+                  </p>
+
+                  <div className={`mt-3 pt-2.5 border-t flex items-center justify-between text-xs ${
+                    isLight ? 'border-slate-100' : 'border-[#2A2A32]'
+                  }`}>
+                    <span className={`font-semibold ${isLight ? 'text-red-700 font-bold' : 'text-red-400'}`}>
+                      {prod.retailPrice || 'Chưa set giá'}
+                    </span>
+                    
+                    {hasWeakSpecs ? (
+                      <span className={`text-[11px] flex items-center space-x-1 ${isLight ? 'text-amber-700' : 'text-amber-400'}`} title="Chưa đủ thông số kỹ thuật tối thiểu">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>Ít thông số</span>
+                      </span>
+                    ) : (
+                      <span className={`text-[11px] flex items-center space-x-1 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`}>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Đủ data AI</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredProducts.length === 0 && (
+              <div className={`text-center py-10 border rounded-xl ${isLight ? 'bg-white border-slate-200 text-slate-500' : 'bg-[#18181D] border-[#2A2A32] text-gray-400'}`}>
+                <Info className={`w-8 h-8 mx-auto mb-2 ${isLight ? 'text-slate-400' : 'text-gray-500'}`} />
+                <p>Không tìm thấy sản phẩm phù hợp.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Product Detail Form */}
+        <div className="lg:col-span-8">
+          <form onSubmit={handleSave} className={`border rounded-2xl p-6 space-y-6 ${cardClass}`}>
+            
+            {/* Header & Status Indicator */}
+            <div className={`flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b gap-3 ${
+              isLight ? 'border-slate-200' : 'border-[#2A2A32]'
+            }`}>
+              <div>
+                <h2 className={`text-lg font-bold flex items-center space-x-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                  <span>{formData.name ? `Chi Tiết: ${formData.name}` : 'Thêm Sản Phẩm Mới'}</span>
+                  {formData.sku && <span className={`text-xs font-mono font-normal ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>({formData.sku})</span>}
+                </h2>
+                <div className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
+                  Cập nhật các thông số chuẩn xác làm dữ liệu nguồn duy nhất cho AI.
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                {formData.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProduct(formData as Product)}
+                    className={`px-3.5 py-2 rounded-xl border flex items-center space-x-1.5 text-xs font-semibold transition ${
+                      isLight 
+                        ? 'border-red-200 text-red-600 bg-red-50 hover:bg-red-100' 
+                        : 'border-red-800/40 text-red-400 bg-red-950/30 hover:bg-red-900/40'
+                    }`}
+                    title="Xóa sản phẩm nếu không phù hợp"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                    <span>Xóa sản phẩm</span>
+                  </button>
+                )}
+
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-bulbtek-red hover:bg-bulbtek-red-hover text-white font-bold text-sm shadow-glow-red transition"
+                >
+                  Lưu sản phẩm
+                </button>
+              </div>
+            </div>
+
+            {/* Notification Banner if weak specs or saved */}
+            {saveMessage && (
+              <div className={`p-3.5 rounded-xl border text-xs font-medium flex items-center space-x-2 animate-fadeIn ${
+                isLight 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                  : 'bg-emerald-950/40 border-emerald-600/50 text-emerald-300'
+              }`}>
+                <CheckCircle2 className={`w-4 h-4 shrink-0 ${isLight ? 'text-emerald-600' : 'text-emerald-400'}`} />
+                <span>{saveMessage}</span>
+              </div>
+            )}
+
+            {!isReadyForAI && (
+              <div className={`p-3.5 rounded-xl border text-xs font-medium flex items-center space-x-2 ${
+                isLight 
+                  ? 'bg-red-50 border-red-200 text-red-800' 
+                  : 'bg-red-950/40 border-red-600/60 text-red-300'
+              }`}>
+                <AlertTriangle className={`w-4 h-4 shrink-0 ${isLight ? 'text-red-600' : 'text-red-400'}`} />
+                <span>⚠️ Sản phẩm chưa đủ thông tin cơ bản (Tên, Product line, Core benefit). Vui lòng điền đủ trước khi tạo content bằng AI.</span>
+              </div>
+            )}
+
+            {isReadyForAI && isSpecsWeak && (
+              <div className={`p-3.5 rounded-xl border text-xs font-medium flex items-center space-x-2 ${
+                isLight 
+                  ? 'bg-amber-50 border-amber-200 text-amber-800' 
+                  : 'bg-amber-950/40 border-amber-600/50 text-amber-300'
+              }`}>
+                <Info className={`w-4 h-4 shrink-0 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
+                <span>⚠️ Sản phẩm [{formData.name}] mới có ít thông số kỹ thuật. Khuyến nghị cập nhật thêm Công suất, Nhiệt màu, Chip LED để bài viết AI thuyết phục hơn.</span>
+              </div>
+            )}
+
+            {/* SECTION 1: THÔNG TIN CƠ BẢN */}
+            <div className="space-y-4">
+              <div className={`flex items-center space-x-2 text-xs font-bold uppercase tracking-wider ${
+                isLight ? 'text-red-700' : 'text-red-400'
+              }`}>
+                <Tag className="w-4 h-4" />
+                <span>1. Thông Tin Cơ Bản</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                
+                {/* Tên sản phẩm */}
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>
+                    Tên sản phẩm <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name || ''}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    placeholder="VD: Bi LED Sunset, Trợ Sáng CYBER 2 BOLT..."
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Product line */}
+                <div>
+                  <label className={labelClass}>
+                    Product Line <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.productLine || 'Bi LED'}
+                    onChange={(e) => handleInputChange('productLine', e.target.value)}
+                    className={inputClass}
+                  >
+                    {PRODUCT_LINES.map(line => (
+                      <option key={line} value={line}>{line}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Mã sản phẩm */}
+                <div>
+                  <label className={labelClass}>Mã sản phẩm (SKU)</label>
+                  <input
+                    type="text"
+                    value={formData.sku || ''}
+                    onChange={(e) => handleInputChange('sku', e.target.value)}
+                    placeholder="BTK-LED-..."
+                    className={`${inputClass} font-mono`}
+                  />
+                </div>
+
+                {/* Trạng thái */}
+                <div>
+                  <label className={labelClass}>
+                    Trạng thái <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.status || 'Sản phẩm mới'}
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    className={inputClass}
+                  >
+                    {STATUS_OPTIONS.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Giá bán lẻ */}
+                <div>
+                  <label className={labelClass}>Giá bán lẻ đề xuất</label>
+                  <input
+                    type="text"
+                    value={formData.retailPrice || ''}
+                    onChange={(e) => handleInputChange('retailPrice', e.target.value)}
+                    placeholder="VD: 8.500.000 VNĐ / Cặp"
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Sản phẩm phù hợp */}
+                <div>
+                  <label className={labelClass}>Sản phẩm phù hợp</label>
+                  <select
+                    value={formData.suitableFor || 'Xe ô tô'}
+                    onChange={(e) => handleInputChange('suitableFor', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="Xe ô tô">Xe ô tô</option>
+                    <option value="Xe máy/mô tô">Xe máy/mô tô</option>
+                    <option value="Cả Hai">Cả Hai</option>
+                  </select>
+                </div>
+
+                {/* Phân khúc */}
+                <div>
+                  <label className={labelClass}>Phân khúc</label>
+                  <select
+                    value={formData.segment || 'Mid'}
+                    onChange={(e) => handleInputChange('segment', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="Entry">Entry (Phổ thông - Tiếp cận nhanh)</option>
+                    <option value="Mid">Mid (Tầm trung - Chủ lực)</option>
+                    <option value="Premium">Premium (Cao cấp - Flagship)</option>
+                  </select>
+                </div>
+
+              </div>
+            </div>
+
+            {/* SECTION 2: THÔNG SỐ KỸ THUẬT */}
+            <div className={`space-y-4 pt-4 border-t ${isLight ? 'border-slate-200' : 'border-[#2A2A32]'}`}>
+              <div className="flex items-center justify-between">
+                <div className={`flex items-center space-x-2 text-xs font-bold uppercase tracking-wider ${
+                  isLight ? 'text-blue-700' : 'text-blue-400'
+                }`}>
+                  <Zap className="w-4 h-4" />
+                  <span>2. Thông Số Kỹ Thuật (Nguồn trích xuất của AI)</span>
+                </div>
+                <span className={`text-[11px] ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>Đã điền {specCount}/11 thông số</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                
+                {/* Chip LED */}
+                <div>
+                  <label className={labelClass}>Chip LED</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.chipLed || ''}
+                    onChange={(e) => handleSpecChange('chipLed', e.target.value)}
+                    placeholder="VD: Osram 6+3 Đức, Nichia Nhật Bản..."
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Nhiệt độ màu */}
+                <div>
+                  <label className={labelClass}>Nhiệt độ màu (K)</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.colorTemp || ''}
+                    onChange={(e) => handleSpecChange('colorTemp', e.target.value)}
+                    placeholder="VD: 5500K, 3000K-4300K-5500K..."
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Độ sáng */}
+                <div>
+                  <label className={labelClass}>Độ sáng (Lux/Lumen)</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.brightness || ''}
+                    onChange={(e) => handleSpecChange('brightness', e.target.value)}
+                    placeholder="VD: 12.000 Lux, 6.000 Lumen..."
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Công suất */}
+                <div>
+                  <label className={labelClass}>Công suất (W)</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.power || ''}
+                    onChange={(e) => handleSpecChange('power', e.target.value)}
+                    placeholder="VD: Cos 65W - Pha 75W"
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Điện áp */}
+                <div>
+                  <label className={labelClass}>Điện áp (V)</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.voltage || ''}
+                    onChange={(e) => handleSpecChange('voltage', e.target.value)}
+                    placeholder="VD: 12V, 9V - 36V DC"
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Tuổi thọ */}
+                <div>
+                  <label className={labelClass}>Tuổi thọ (giờ)</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.lifespan || ''}
+                    onChange={(e) => handleSpecChange('lifespan', e.target.value)}
+                    placeholder="VD: 50.000 giờ thắp sáng"
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Bảo hành */}
+                <div>
+                  <label className={labelClass}>Bảo hành</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.warranty || ''}
+                    onChange={(e) => handleSpecChange('warranty', e.target.value)}
+                    placeholder="VD: 3 năm (1 đổi 1 chính hãng)"
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Tương thích xe */}
+                <div>
+                  <label className={labelClass}>Tương thích xe</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.compatibility || ''}
+                    onChange={(e) => handleSpecChange('compatibility', e.target.value)}
+                    placeholder="VD: Chân xoáy đa năng 98% xe, cắm zin 100%..."
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Kích thước Lens (inch) */}
+                <div>
+                  <label className={labelClass}>Kích thước Lens (inch)</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.sizeInch || ''}
+                    onChange={(e) => handleSpecChange('sizeInch', e.target.value)}
+                    placeholder="VD: 3.0 inch, 2.0 inch, 1.8 inch..."
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Chuẩn kháng nước */}
+                <div>
+                  <label className={labelClass}>Chuẩn kháng nước</label>
+                  <input
+                    type="text"
+                    value={formData.specs?.waterproof || ''}
+                    onChange={(e) => handleSpecChange('waterproof', e.target.value)}
+                    placeholder="VD: IP68 (Chống nước tuyệt đối), IP65..."
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Tính năng đặc biệt */}
+                <div className="sm:col-span-3">
+                  <label className={labelClass}>Tính năng đặc biệt</label>
+                  <textarea
+                    rows={2}
+                    value={formData.specs?.specialFeatures || ''}
+                    onChange={(e) => handleSpecChange('specialFeatures', e.target.value)}
+                    placeholder="VD: Chống nước IP68, tản nhiệt đồng kép, đường cắt cos phẳng chống chói..."
+                    className={inputClass}
+                  />
+                </div>
+
+              </div>
+            </div>
+
+            {/* SECTION 3: THÔNG TIN MARKETING */}
+            <div className={`space-y-4 pt-4 border-t ${isLight ? 'border-slate-200' : 'border-[#2A2A32]'}`}>
+              <div className={`flex items-center space-x-2 text-xs font-bold uppercase tracking-wider ${
+                isLight ? 'text-amber-700' : 'text-amber-400'
+              }`}>
+                <ShieldCheck className="w-4 h-4" />
+                <span>3. Thông Tin Marketing & Định Vị</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Core benefit */}
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>
+                    Core Benefit (1 câu mô tả lợi ích chính) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.coreBenefit || ''}
+                    onChange={(e) => handleInputChange('coreBenefit', e.target.value)}
+                    placeholder="VD: Ánh sáng cung hoàng hôn êm dịu, bám đường vượt trội không gây chói xe ngược chiều"
+                    className={`${inputClass} font-medium`}
+                  />
+                  <span className={`text-[11px] mt-1 block ${isLight ? 'text-slate-500' : 'text-gray-500'}`}>
+                    AI sẽ dùng câu này làm kim chỉ nam xuyên suốt các bài viết.
+                  </span>
+                </div>
+
+                {/* Giai đoạn sản phẩm */}
+                <div>
+                  <label className={labelClass}>Giai đoạn sản phẩm</label>
+                  <select
+                    value={formData.stage || 'Growth'}
+                    onChange={(e) => handleInputChange('stage', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="Launch">Launch (Ra mắt chiến lược)</option>
+                    <option value="Growth">Growth (Tăng trưởng doanh số)</option>
+                    <option value="Maintain">Maintain (Duy trì thị phần)</option>
+                    <option value="Clearance">Clearance (Thanh lý tồn kho)</option>
+                  </select>
+                </div>
+
+                {/* Ghi chú nội bộ */}
+                <div>
+                  <label className={labelClass}>
+                    Ghi chú nội bộ <span className={`font-normal ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>(Không đưa vào content public)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.internalNotes || ''}
+                    onChange={(e) => handleInputChange('internalNotes', e.target.value)}
+                    placeholder="VD: Sản phẩm có chiết khấu gara tốt, đẩy mạnh đại lý tỉnh..."
+                    className={inputClass}
+                  />
+                </div>
+
+              </div>
+            </div>
+
+            {/* Form Actions */}
+            <div className={`pt-4 border-t flex items-center justify-between ${
+              isLight ? 'border-slate-200' : 'border-[#2A2A32]'
+            }`}>
+              <div className={`text-xs ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
+                {formData.updatedAt && `Cập nhật lần cuối: ${new Date(formData.updatedAt).toLocaleString('vi-VN')}`}
+              </div>
+
+              <div className="flex items-center space-x-3">
+                {formData.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProduct(formData as Product)}
+                    className={`flex items-center space-x-1.5 px-4 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                      isLight 
+                        ? 'border-red-200 text-red-600 bg-red-50 hover:bg-red-100' 
+                        : 'border-red-800/40 text-red-400 bg-red-950/30 hover:bg-red-900/40'
+                    }`}
+                    title="Xóa sản phẩm nếu không phù hợp"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                    <span>Xóa sản phẩm này</span>
+                  </button>
+                )}
+
+                <button
+                  type="submit"
+                  className="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-bulbtek-red hover:bg-bulbtek-red-hover text-white font-bold text-sm shadow-glow-red transition"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Lưu sản phẩm</span>
+                </button>
+              </div>
+            </div>
+
+          </form>
+        </div>
+
+      </div>
+
+      {/* Bulk Product Import Modal */}
+      <BulkProductImportModal
+        isOpen={showBulkImportModal}
+        onClose={() => setShowBulkImportModal(false)}
+        onImportSuccess={(result) => {
+          setBulkImportNotification({
+            message: `Nhập thành công! Đã thêm mới ${result.added} sản phẩm, cập nhật ${result.updated} sản phẩm (Tổng cộng ${result.total} sản phẩm được xử lý).`,
+            type: 'success'
+          });
+          setTimeout(() => {
+            setBulkImportNotification(null);
+          }, 8000);
+        }}
+      />
+    </div>
+  );
+};

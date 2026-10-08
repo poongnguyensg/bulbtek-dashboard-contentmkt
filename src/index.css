@@ -1,0 +1,427 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dark mode default - Deep automotive palette (space-separated RGB for Tailwind opacity modifier support) */
+  --bg-main: 13 13 16;         /* #0D0D10 - Deep Black */
+  --bg-header: 18 18 22;       /* #121216 - Header Dark */
+  --bg-card: 24 24 29;         /* #18181D - Card Surface */
+  --bg-muted: 36 36 43;        /* #24242B */
+  --bg-input: 18 18 21;        /* #121215 */
+  --border-color: 42 42 50;    /* #2A2A32 - Slate border */
+  --text-main: 248 250 252;    /* #F8FAFC - Silver white */
+  --text-muted: 148 163 184;   /* #94A3B8 */
+  --card-hover: 32 32 38;      /* #202026 */
+}
+
+html.dark {
+  --bg-main: 13 13 16;
+  --bg-header: 18 18 22;
+  --bg-card: 24 24 29;
+  --bg-muted: 36 36 43;
+  --bg-input: 18 18 21;
+  --border-color: 42 42 50;
+  --text-main: 248 250 252;
+  --text-muted: 148 163 184;
+  --card-hover: 32 32 38;
+  color-scheme: dark;
+}
+
+html.light {
+  /* Light mode - Modern SaaS palette with high contrast */
+  --bg-main: 241 245 249;      /* #F1F5F9 - Slate 100 - Visible background contrast! */
+  --bg-header: 255 255 255;    /* #FFFFFF - Pure White Header */
+  --bg-card: 255 255 255;      /* #FFFFFF - Pure White Cards */
+  --bg-muted: 241 245 249;     /* #F1F5F9 - Slate 100 */
+  --bg-input: 255 255 255;     /* #FFFFFF - White Inputs */
+  --border-color: 226 232 240; /* #E2E8F0 - Slate 200 */
+  --text-main: 15 23 42;       /* #0F172A - Slate 900 - Deep crisp text */
+  --text-muted: 71 85 105;     /* #475569 - Slate 600 - Readable secondary text */
+  --card-hover: 248 250 252;   /* #F8FAFC */
+  color-scheme: light;
+}
+
+@layer base {
+  body {
+    background-color: rgb(var(--bg-main));
+    color: rgb(var(--text-main));
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* ==========================================================================
+     LIGHT THEME COMPREHENSIVE OVERRIDES
+     ========================================================================== */
+
+  /* General text color overrides in Light Mode */
+  html.light .text-white {
+    color: #0F172A;
+  }
+
+  html.light .text-gray-100,
+  html.light .text-gray-200 {
+    color: #1E293B !important;
+  }
+
+  html.light .text-gray-300 {
+    color: #334155 !important;
+  }
+
+  html.light .text-gray-400 {
+    color: #475569 !important;
+  }
+
+  html.light .text-gray-500 {
+    color: #64748B !important;
+  }
+
+  /* High contrast accent text in Light Mode */
+  html.light .text-red-400,
+  html.light .text-red-300 {
+    color: #AF2024 !important;
+  }
+
+  html.light .text-amber-400,
+  html.light .text-amber-300 {
+    color: #B45309 !important;
+  }
+
+  html.light .text-emerald-400,
+  html.light .text-emerald-300 {
+    color: #047857 !important;
+  }
+
+  html.light .text-blue-400,
+  html.light .text-blue-300 {
+    color: #1D4ED8 !important;
+  }
+
+  html.light .text-cyan-400,
+  html.light .text-cyan-300 {
+    color: #0E7490 !important;
+  }
+
+  html.light .text-purple-400,
+  html.light .text-purple-300 {
+    color: #7E22CE !important;
+  }
+
+  /* Preserve pure white text on solid colored badges & buttons */
+  html.light .bg-bulbtek-red,
+  html.light .bg-bulbtek-red-hover,
+  html.light .bg-red-600,
+  html.light .bg-emerald-600,
+  html.light .bg-blue-600,
+  html.light .from-bulbtek-red,
+  html.light .keep-white {
+    color: #FFFFFF !important;
+  }
+
+  html.light .bg-bulbtek-red .text-white,
+  html.light .bg-bulbtek-red-hover .text-white,
+  html.light .bg-red-600 .text-white,
+  html.light .bg-emerald-600 .text-white,
+  html.light .bg-blue-600 .text-white,
+  html.light .from-bulbtek-red .text-white {
+    color: #FFFFFF !important;
+  }
+
+  /* Soft pastel badges in Light Mode for high legibility */
+  html.light [class*="bg-red-950"],
+  html.light [class*="bg-red-900"] {
+    background-color: #FEF2F2 !important;
+    border-color: #FECACA !important;
+    color: #B91C1C !important;
+  }
+  html.light [class*="bg-red-950"] *,
+  html.light [class*="bg-red-900"] * {
+    color: #B91C1C !important;
+  }
+
+  html.light [class*="bg-amber-950"],
+  html.light [class*="bg-amber-900"] {
+    background-color: #FFFBEB !important;
+    border-color: #FDE68A !important;
+    color: #B45309 !important;
+  }
+  html.light [class*="bg-amber-950"] *,
+  html.light [class*="bg-amber-900"] * {
+    color: #B45309 !important;
+  }
+
+  html.light [class*="bg-emerald-950"],
+  html.light [class*="bg-emerald-900"] {
+    background-color: #ECFDF5 !important;
+    border-color: #A7F3D0 !important;
+    color: #047857 !important;
+  }
+  html.light [class*="bg-emerald-950"] *,
+  html.light [class*="bg-emerald-900"] * {
+    color: #047857 !important;
+  }
+
+  html.light [class*="bg-blue-950"],
+  html.light [class*="bg-blue-900"] {
+    background-color: #EFF6FF !important;
+    border-color: #BFDBFE !important;
+    color: #1D4ED8 !important;
+  }
+  html.light [class*="bg-blue-950"] *,
+  html.light [class*="bg-blue-900"] * {
+    color: #1D4ED8 !important;
+  }
+
+  html.light [class*="bg-cyan-950"],
+  html.light [class*="bg-cyan-900"] {
+    background-color: #ECFEFF !important;
+    border-color: #A5F3FC !important;
+    color: #0E7490 !important;
+  }
+  html.light [class*="bg-cyan-950"] *,
+  html.light [class*="bg-cyan-900"] * {
+    color: #0E7490 !important;
+  }
+
+  html.light [class*="bg-purple-950"],
+  html.light [class*="bg-purple-900"] {
+    background-color: #FAF5FF !important;
+    border-color: #E9D5FF !important;
+    color: #7E22CE !important;
+  }
+  html.light [class*="bg-purple-950"] *,
+  html.light [class*="bg-purple-900"] * {
+    color: #7E22CE !important;
+  }
+
+  html.light [class*="bg-gray-800"],
+  html.light [class*="bg-gray-900"],
+  html.light [class*="bg-gray-700"] {
+    background-color: #F1F5F9 !important;
+    border-color: #CBD5E1 !important;
+    color: #334155 !important;
+  }
+  html.light [class*="bg-gray-800"] *,
+  html.light [class*="bg-gray-900"] *,
+  html.light [class*="bg-gray-700"] * {
+    color: #334155 !important;
+  }
+
+  /* Tinted buttons and chips in Light Mode */
+  html.light .bg-bulbtek-red\/20,
+  html.light .bg-bulbtek-red\/15,
+  html.light .bg-bulbtek-red\/10,
+  html.light .bg-red-500\/20,
+  html.light .bg-red-500\/10 {
+    background-color: #FEF2F2 !important;
+    border-color: #FCA5A5 !important;
+    color: #AF2024 !important;
+  }
+  html.light .bg-bulbtek-red\/20 *,
+  html.light .bg-bulbtek-red\/15 *,
+  html.light .bg-bulbtek-red\/10 *,
+  html.light .bg-red-500\/20 *,
+  html.light .bg-red-500\/10 * {
+    color: #AF2024 !important;
+  }
+
+  html.light .bg-amber-500\/20,
+  html.light .bg-amber-500\/10,
+  html.light .bg-amber-500\/30,
+  html.light .bg-amber-950\/20 {
+    background-color: #FFFBEB !important;
+    border-color: #FCD34D !important;
+    color: #B45309 !important;
+  }
+  html.light .bg-amber-500\/20 *,
+  html.light .bg-amber-500\/10 *,
+  html.light .bg-amber-500\/30 *,
+  html.light .bg-amber-950\/20 * {
+    color: #B45309 !important;
+  }
+
+  html.light .bg-blue-500\/20,
+  html.light .bg-blue-500\/10 {
+    background-color: #EFF6FF !important;
+    border-color: #93C5FD !important;
+    color: #1D4ED8 !important;
+  }
+  html.light .bg-blue-500\/20 *,
+  html.light .bg-blue-500\/10 * {
+    color: #1D4ED8 !important;
+  }
+
+  html.light .bg-emerald-500\/20,
+  html.light .bg-emerald-500\/10 {
+    background-color: #ECFDF5 !important;
+    border-color: #6EE7B7 !important;
+    color: #047857 !important;
+  }
+  html.light .bg-emerald-500\/20 *,
+  html.light .bg-emerald-500\/10 * {
+    color: #047857 !important;
+  }
+
+  html.light .bg-cyan-500\/20,
+  html.light .bg-cyan-500\/10 {
+    background-color: #ECFEFF !important;
+    border-color: #67E8F9 !important;
+    color: #0E7490 !important;
+  }
+  html.light .bg-cyan-500\/20 *,
+  html.light .bg-cyan-500\/10 * {
+    color: #0E7490 !important;
+  }
+
+  /* Form Inputs, Selects, Textareas in Light Mode */
+  html.light input,
+  html.light select,
+  html.light textarea {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    border-color: #CBD5E1 !important;
+  }
+
+  html.light select option {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+  }
+
+  html.light input:focus,
+  html.light select:focus,
+  html.light textarea:focus {
+    border-color: #AF2024 !important;
+    box-shadow: 0 0 0 2px rgba(175, 32, 36, 0.15) !important;
+  }
+
+  html.light input::placeholder,
+  html.light textarea::placeholder {
+    color: #94A3B8 !important;
+  }
+
+  /* Hover state overrides for Light Mode */
+  html.light .hover\:bg-gray-800:hover {
+    background-color: #E2E8F0 !important;
+    color: #0F172A !important;
+  }
+
+  html.light .hover\:text-white:hover {
+    color: #0F172A !important;
+  }
+
+  html.light .hover\:text-gray-100:hover {
+    color: #0F172A !important;
+  }
+
+  html.light .hover\:bg-bulbtek-dark-surface:hover {
+    background-color: #F8FAFC !important;
+  }
+
+  html.light .hover\:bg-bulbtek-dark-deep\/40:hover,
+  html.light .hover\:bg-bulbtek-dark-deep\/50:hover {
+    background-color: #F1F5F9 !important;
+  }
+
+  /* Clean subtle shadow styling in Light Mode */
+  html.light .shadow-2xl,
+  html.light .shadow-xl {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  html.light header.shadow-2xl,
+  html.light header.shadow-md {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  html.light .shadow-inner {
+    box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.04) !important;
+  }
+
+  /* Table borders in Light Mode */
+  html.light thead {
+    background-color: #F8FAFC !important;
+    color: #475569 !important;
+    border-color: #E2E8F0 !important;
+  }
+
+  html.light tr {
+    border-color: #E2E8F0 !important;
+  }
+
+  /* Modal backdrops in Light Mode */
+  html.light .fixed.bg-black\/80,
+  html.light .fixed.bg-black\/85 {
+    background-color: rgba(15, 23, 42, 0.6) !important;
+  }
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--bg-main));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--border-color));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #AF2024;
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #AF2024;
+}
+
+/* Modal Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Print Styling for PDF export in Tab 4 */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  header, footer, nav, button {
+    display: none !important;
+  }
+}

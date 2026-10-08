@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product, ProductLine, ProductStatus, TargetAudience, SuitableVehicle, ProductSegment, ProductStage } from '../../types';
 import { 
@@ -16,7 +16,10 @@ import {
   Info,
   Car,
   FileSpreadsheet,
-  Download
+  Download,
+  Upload,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { BulkProductImportModal } from '../modals/BulkProductImportModal';
 import { downloadTemplateExcel } from '../../services/productImportService';
@@ -99,12 +102,40 @@ export const Tab1Products: React.FC = () => {
       },
       coreBenefit: '',
       stage: 'Launch',
-      internalNotes: ''
+      internalNotes: '',
+      imageUrl: ''
     };
     setSelectedProduct(null);
     setFormData(newProduct);
     setIsEditing(true);
     setSaveMessage(null);
+  };
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn đúng tệp định dạng hình ảnh (PNG, JPG, WEBP, GIF)!');
+      return;
+    }
+
+    if (file.size > 4 * 1024 * 1024) {
+      alert('Kích thước ảnh vượt quá 4MB. Vui lòng chọn ảnh nhẹ hơn để đảm bảo tốc độ dashboard!');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        handleInputChange('imageUrl', result);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleDeleteProduct = (prod: { id?: string; name?: string; sku?: string }) => {
@@ -402,21 +433,36 @@ export const Tab1Products: React.FC = () => {
                         : 'bg-[#18181D] border-[#2A2A32] hover:border-gray-600'
                   }`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`font-bold text-base leading-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
-                          {prod.name}
-                        </span>
-                        {prod.status === 'Hero Product' && (
-                          <span className="flex h-2 w-2 relative">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-bulbtek-red"></span>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start space-x-3 min-w-0">
+                      {prod.imageUrl ? (
+                        <img
+                          src={prod.imageUrl}
+                          alt={prod.name}
+                          className="w-11 h-11 rounded-lg object-cover border shrink-0 bg-black/30"
+                        />
+                      ) : (
+                        <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 border ${
+                          isLight ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-gray-800 border-gray-700 text-gray-500'
+                        }`}>
+                          <Car className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <span className={`font-bold text-base leading-tight truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                            {prod.name}
                           </span>
-                        )}
-                      </div>
-                      <div className={`text-xs mt-1 font-mono ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
-                        {prod.sku} • <span className={isLight ? 'text-slate-700' : 'text-gray-300'}>{prod.productLine}</span>
+                          {prod.status === 'Hero Product' && (
+                            <span className="flex h-2 w-2 relative shrink-0">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-bulbtek-red"></span>
+                            </span>
+                          )}
+                        </div>
+                        <div className={`text-xs mt-1 font-mono truncate ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
+                          {prod.sku} • <span className={isLight ? 'text-slate-700' : 'text-gray-300'}>{prod.productLine}</span>
+                        </div>
                       </div>
                     </div>
 
@@ -664,6 +710,90 @@ export const Tab1Products: React.FC = () => {
                     <option value="Mid">Mid (Tầm trung - Chủ lực)</option>
                     <option value="Premium">Premium (Cao cấp - Flagship)</option>
                   </select>
+                </div>
+
+                {/* Tải Ảnh Sản Phẩm */}
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <label className={labelClass}>
+                    Tải Ảnh Sản Phẩm <span className={`font-normal ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>(Hình ảnh riêng biệt cho mỗi sản phẩm)</span>
+                  </label>
+                  <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-center gap-4 transition-all ${
+                    isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#121215] border-[#2F2F37]'
+                  }`}>
+                    {/* Image Preview Box */}
+                    <div className={`relative w-28 h-28 rounded-xl overflow-hidden border shrink-0 flex items-center justify-center transition-all ${
+                      formData.imageUrl 
+                        ? 'border-bulbtek-red shadow-sm bg-black/40' 
+                        : isLight ? 'border-dashed border-slate-300 bg-white' : 'border-dashed border-[#2F2F37] bg-black/20'
+                    }`}>
+                      {formData.imageUrl ? (
+                        <>
+                          <img
+                            src={formData.imageUrl}
+                            alt={formData.name || 'Sản phẩm'}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleInputChange('imageUrl', '')}
+                            className="absolute top-1.5 right-1.5 p-1 rounded-full bg-red-600/90 hover:bg-red-600 text-white shadow-md transition"
+                            title="Gỡ ảnh này"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-gray-500 p-2 text-center">
+                          <ImageIcon className="w-7 h-7 opacity-40 mb-1" />
+                          <span className="text-[10px]">Chưa có ảnh</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Upload Controls & URL */}
+                    <div className="flex-1 w-full space-y-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleImageFileChange}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-bulbtek-red hover:bg-bulbtek-red-hover text-white text-xs font-bold shadow-sm transition"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{formData.imageUrl ? 'Tải ảnh khác từ máy' : 'Tải Ảnh Sản Phẩm Từ Máy'}</span>
+                        </button>
+
+                        {formData.imageUrl && (
+                          <span className="text-[11px] text-emerald-600 font-semibold flex items-center space-x-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Đã có ảnh riêng biệt</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className={`text-[11px] ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
+                          Hoặc dán đường dẫn ảnh trực tuyến (Image URL):
+                        </div>
+                        <input
+                          type="url"
+                          value={formData.imageUrl || ''}
+                          onChange={(e) => handleInputChange('imageUrl', e.target.value)}
+                          placeholder="https://... (dán link ảnh online)"
+                          className={`${inputClass} text-xs py-1.5`}
+                        />
+                      </div>
+                      <p className={`text-[11px] ${isLight ? 'text-slate-500' : 'text-gray-500'}`}>
+                        Hỗ trợ định dạng PNG, JPG, WEBP (tối đa 4MB). Ảnh được hiển thị đồng bộ trong danh mục, Lịch bài viết và Design Brief.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
               </div>

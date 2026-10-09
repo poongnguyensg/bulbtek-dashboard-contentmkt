@@ -9,9 +9,11 @@ import { checkBrandCompliance, DEFAULT_COMPLIANCE_RULES } from '../../data/compl
 import { 
   getUniqueBrandAiSuggestions, 
   getUniqueMascotAiSuggestions, 
+  getUniqueEventHolidayAiSuggestions,
   BrandIdeaSuggestion, 
   isIdeaDuplicate 
 } from '../../data/brandAiSuggestions';
+import { getHolidaysForMonth, VietnameseHoliday } from '../../data/vietnamHolidays';
 import { exportBrandingPlanCsv } from '../../utils/exportPlanCsv';
 import { exportBrandingPlanPdf } from '../../utils/exportPlanPdf';
 import { 
@@ -20,6 +22,7 @@ import {
   Bot,
   Sparkles,
   CalendarDays,
+  PartyPopper,
   Plus,
   Trash2,
   CheckCircle2,
@@ -76,9 +79,15 @@ export const TabBrandPlanning: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
 
-  // Targets
+  // Targets cho 3 tuyến nội dung thương hiệu
   const [brandingTarget, setBrandingTarget] = useState<number>(4);
   const [mascotTarget, setMascotTarget] = useState<number>(3);
+  const [eventTarget, setEventTarget] = useState<number>(3);
+
+  // Danh sách các ngày Dịp Lễ & Tết Việt Nam trong tháng được chọn
+  const holidaysInMonth = useMemo(() => {
+    return getHolidaysForMonth(selectedYear, selectedMonth);
+  }, [selectedYear, selectedMonth]);
 
   // Tỷ trọng kênh xuất bản (Facebook % / TikTok %)
   const [fbChannelRatio, setFbChannelRatio] = useState<number>(80);
@@ -100,13 +109,15 @@ export const TabBrandPlanning: React.FC = () => {
   const [selectedBrandCategories, setSelectedBrandCategories] = useState<string[]>([
     'BRANDING',
     'ROBOT_BU',
+    'HOLIDAY_EVENT',
     'INTERACTION'
   ]);
 
   const [brandCategoryRatios, setBrandCategoryRatios] = useState<Record<string, number>>({
-    BRANDING: 40,
-    ROBOT_BU: 40,
-    INTERACTION: 20
+    BRANDING: 35,
+    ROBOT_BU: 30,
+    HOLIDAY_EVENT: 25,
+    INTERACTION: 10
   });
 
   // Toggle chọn danh mục và tự động san phân bổ
@@ -204,6 +215,50 @@ export const TabBrandPlanning: React.FC = () => {
     setMascotIdeas(prev => prev.length <= 1 ? [''] : prev.filter((_, i) => i !== idx));
   };
 
+  // Tuyến 3: Nội dung Sự Kiện & Lễ Tết Trong Tháng
+  const [eventIdeas, setEventIdeas] = useState<string[]>(() => {
+    const curHols = getHolidaysForMonth(new Date().getFullYear(), new Date().getMonth() + 1);
+    if (curHols.length > 0) {
+      return curHols.slice(0, 3).map(h => 
+        `${h.holiday.name}${h.day ? ` (Ngày ${h.day}/${new Date().getMonth() + 1})` : ''}: ${h.holiday.suggestedAngle}`
+      );
+    }
+    return [
+      'Dịp Lễ & Tết Việt Nam trọng tâm trong tháng: Chiến dịch truyền thông thương hiệu gắn kết thông điệp an toàn',
+      'Kiểm tra và cân chỉnh góc chiếu đèn xe miễn phí tại 300+ đại lý trước kỳ nghỉ lễ',
+      'Món quà an toàn cho gia đình: Luồng sáng bám đường chở che trọn vẹn mọi hành trình'
+    ];
+  });
+
+  const handleAddEventIdea = (text = '') => setEventIdeas(prev => [...prev, text]);
+  const handleUpdateEventIdea = (idx: number, text: string) => {
+    setEventIdeas(prev => {
+      const copy = [...prev];
+      copy[idx] = text;
+      return copy;
+    });
+  };
+  const handleRemoveEventIdea = (idx: number) => {
+    setEventIdeas(prev => prev.length <= 1 ? [''] : prev.filter((_, i) => i !== idx));
+  };
+
+  const handleAddHolidayToEventIdeas = (hol: VietnameseHoliday, day?: number) => {
+    const dayText = day ? ` (Ngày ${day}/${selectedMonth})` : '';
+    const newText = `${hol.name}${dayText}: ${hol.suggestedAngle}`;
+    setEventIdeas(prev => {
+      const emptyIdx = prev.findIndex(item => !item.trim());
+      if (emptyIdx !== -1) {
+        const copy = [...prev];
+        copy[emptyIdx] = newText;
+        return copy;
+      }
+      return [...prev, newText];
+    });
+    setUsedEventHistory(prev => [...prev, newText, hol.name]);
+    setCopiedActionToast(`✓ Đã thêm "${hol.name}" vào ô ý tưởng Tuyến 3!`);
+    setTimeout(() => setCopiedActionToast(null), 3000);
+  };
+
   // Lịch sử các ý tưởng đã từng chọn hoặc dùng (chống trùng lặp 100% khi sinh lại)
   const [usedBrandHistory, setUsedBrandHistory] = useState<string[]>(() => [
     '3 Giá trị cốt lõi: BỀN BỈ – BỀN VỮNG – BẢO VỆ, triết lý "An Toàn Hành Trình" và mạng lưới 300+ đại lý toàn quốc',
@@ -241,8 +296,23 @@ export const TabBrandPlanning: React.FC = () => {
     );
   });
 
+  const [usedEventHistory, setUsedEventHistory] = useState<string[]>(() => [
+    'Dịp Lễ & Tết Việt Nam trọng tâm trong tháng: Chiến dịch truyền thông thương hiệu gắn kết thông điệp an toàn'
+  ]);
+
+  const [eventAiSuggestions, setEventAiSuggestions] = useState<BrandIdeaSuggestion[]>(() => {
+    return getUniqueEventHolidayAiSuggestions(
+      new Date().getMonth() + 1,
+      new Date().getFullYear(),
+      [],
+      [],
+      3
+    );
+  });
+
   const [isGeneratingBrandAi, setIsGeneratingBrandAi] = useState<boolean>(false);
   const [isGeneratingMascotAi, setIsGeneratingMascotAi] = useState<boolean>(false);
+  const [isGeneratingEventAi, setIsGeneratingEventAi] = useState<boolean>(false);
   const [copiedActionToast, setCopiedActionToast] = useState<string | null>(null);
 
   // Sinh gợi ý mới từ AI không trùng lặp cho Tuyến 1 (Branding)
@@ -262,6 +332,16 @@ export const TabBrandPlanning: React.FC = () => {
       const newSug = getUniqueMascotAiSuggestions(mascotIdeas, usedMascotHistory, 3);
       setMascotAiSuggestions(newSug);
       setIsGeneratingMascotAi(false);
+    }, 350);
+  };
+
+  // Sinh gợi ý mới từ AI không trùng lặp cho Tuyến 3 (Sự Kiện & Lễ Tết)
+  const handleGenerateNewEventAi = () => {
+    setIsGeneratingEventAi(true);
+    setTimeout(() => {
+      const newSug = getUniqueEventHolidayAiSuggestions(selectedMonth, selectedYear, eventIdeas, usedEventHistory, 3);
+      setEventAiSuggestions(newSug);
+      setIsGeneratingEventAi(false);
     }, 350);
   };
 
@@ -299,30 +379,54 @@ export const TabBrandPlanning: React.FC = () => {
     setTimeout(() => setCopiedActionToast(null), 3000);
   };
 
+  // Áp dụng ý tưởng vào ô nhập Tuyến 3 (Sự Kiện Lễ Tết)
+  const handleApplyEventIdeaToInputs = (suggestion: BrandIdeaSuggestion) => {
+    setEventIdeas(prev => {
+      const emptyIndex = prev.findIndex(item => !item.trim());
+      if (emptyIndex !== -1) {
+        const copy = [...prev];
+        copy[emptyIndex] = suggestion.content;
+        return copy;
+      }
+      return [...prev, suggestion.content];
+    });
+
+    setUsedEventHistory(prev => [...prev, suggestion.content, suggestion.title]);
+    setCopiedActionToast(`✓ Đã thêm: "${suggestion.title}" vào ô ý tưởng Sự kiện Lễ Tết!`);
+    setTimeout(() => setCopiedActionToast(null), 3000);
+  };
+
   // Copy ý tưởng vào clipboard và đánh dấu đã sử dụng (để không bị trùng sau này)
-  const handleCopyIdeaText = (suggestion: BrandIdeaSuggestion, type: 'BRANDING' | 'ROBOT_BU') => {
+  const handleCopyIdeaText = (suggestion: BrandIdeaSuggestion, type: 'BRANDING' | 'ROBOT_BU' | 'EVENT') => {
     navigator.clipboard.writeText(suggestion.content);
     if (type === 'BRANDING') {
       setUsedBrandHistory(prev => [...prev, suggestion.content, suggestion.title]);
-    } else {
+    } else if (type === 'ROBOT_BU') {
       setUsedMascotHistory(prev => [...prev, suggestion.content, suggestion.title]);
+    } else {
+      setUsedEventHistory(prev => [...prev, suggestion.content, suggestion.title]);
     }
     setCopiedActionToast(`📋 Đã copy ý tưởng: "${suggestion.title}". Bạn có thể dán (Ctrl+V) vào bất kỳ ô nào!`);
     setTimeout(() => setCopiedActionToast(null), 3500);
   };
 
   // Reset lịch sử để duyệt lại toàn bộ ngân hàng ý tưởng
-  const handleResetHistory = (type: 'BRANDING' | 'ROBOT_BU') => {
+  const handleResetHistory = (type: 'BRANDING' | 'ROBOT_BU' | 'EVENT') => {
     if (type === 'BRANDING') {
       setUsedBrandHistory([...brandingIdeas]);
       const fresh = getUniqueBrandAiSuggestions(brandingIdeas, [], 3);
       setBrandAiSuggestions(fresh);
       setCopiedActionToast('🔄 Đã làm mới lịch sử và tạo lại gợi ý Tuyến 1!');
-    } else {
+    } else if (type === 'ROBOT_BU') {
       setUsedMascotHistory([...mascotIdeas]);
       const fresh = getUniqueMascotAiSuggestions(mascotIdeas, [], 3);
       setMascotAiSuggestions(fresh);
       setCopiedActionToast('🔄 Đã làm mới lịch sử và tạo lại gợi ý Tuyến 2!');
+    } else {
+      setUsedEventHistory([...eventIdeas]);
+      const fresh = getUniqueEventHolidayAiSuggestions(selectedMonth, selectedYear, eventIdeas, [], 3);
+      setEventAiSuggestions(fresh);
+      setCopiedActionToast('🔄 Đã làm mới lịch sử và tạo lại gợi ý Tuyến 3 (Sự Kiện)!');
     }
   };
 
@@ -361,11 +465,11 @@ export const TabBrandPlanning: React.FC = () => {
     hookFb: string;
     hookTiktok: string;
     angle: string;
-    source: 'BRANDING' | 'ROBOT_BU';
+    source: 'BRANDING' | 'ROBOT_BU' | 'EVENT';
   } | null>(null);
   const [isTestingAngle, setIsTestingAngle] = useState<boolean>(false);
 
-  const handleTestCreativeAngle = (type: 'BRANDING' | 'ROBOT_BU') => {
+  const handleTestCreativeAngle = (type: 'BRANDING' | 'ROBOT_BU' | 'EVENT') => {
     setIsTestingAngle(true);
     setTimeout(() => {
       if (type === 'BRANDING') {
@@ -376,7 +480,7 @@ export const TabBrandPlanning: React.FC = () => {
           hookTiktok: `💡 3 năm bảo hành đổi mới & quy chuẩn cắm jack zin an toàn tuyệt đối cùng Bulbtek Việt Nam!`,
           source: 'BRANDING'
         });
-      } else {
+      } else if (type === 'ROBOT_BU') {
         const idea = mascotIdeas.find(i => i.trim()) || mascotAiSuggestions[0]?.content || 'Nhật ký cabin cùng Robot BU';
         setTestedAngleOutput({
           angle: `[Góc Tiếp Cận Linh Vật BU] ${idea.slice(0, 50)}...`,
@@ -384,12 +488,21 @@ export const TabBrandPlanning: React.FC = () => {
           hookTiktok: `🚗 Đột nhập phòng Lab cùng trợ thủ táp-lô Robot BU: Thử thách đèn xe ngâm nước và sốc nhiệt cực đại!`,
           source: 'ROBOT_BU'
         });
+      } else {
+        const idea = eventIdeas.find(i => i.trim()) || eventAiSuggestions[0]?.content || 'Sự kiện và Lễ Tết trong tháng';
+        const primaryHol = holidaysInMonth[0]?.holiday;
+        setTestedAngleOutput({
+          angle: `[Góc Tiếp Cận Sự Kiện Lễ Tết] ${primaryHol ? primaryHol.name : `Tháng ${selectedMonth}`} — ${idea.slice(0, 50)}...`,
+          hookFb: `🎉 "${primaryHol ? `Dịp ${primaryHol.name}` : `Sự kiện tháng ${selectedMonth}`}: Món quà an toàn cho người thân trên mọi nẻo đường sum vầy!" — ${idea}`,
+          hookTiktok: `✨ Kiểm tra luồng sáng xe đón lễ tết miễn phí tại 300+ gara ủy quyền Bulbtek toàn quốc!`,
+          source: 'EVENT'
+        });
       }
       setIsTestingAngle(false);
     }, 350);
   };
 
-  // Filter Brand & Mascot items in month
+  // Filter Brand & Mascot & Event items in month
   const brandContentsInMonth = useMemo(() => {
     return contents.filter(item => {
       const parts = item.date.split('-');
@@ -398,10 +511,14 @@ export const TabBrandPlanning: React.FC = () => {
         const y = parseInt(parts[0], 10);
         if (m !== selectedMonth || y !== selectedYear) return false;
       }
-      // Check if it's Branding or Mascot BU
+      // Check if it's Branding or Mascot BU or Holiday Event
       const isBrandLine = item.productLine === 'Branding Sản Phẩm' || item.productLine === 'Linh Vật Robot BU';
       const isBrandCat = item.categoryId === 'cat-branding' || item.categoryId === 'cat-interaction';
-      const isBrandName = item.productName.toLowerCase().includes('branding') || item.productName.toLowerCase().includes('robot bu');
+      const isBrandName = item.productName.toLowerCase().includes('branding') || 
+                          item.productName.toLowerCase().includes('robot bu') ||
+                          item.productName.toLowerCase().includes('sự kiện') ||
+                          item.title.toLowerCase().includes('sự kiện') ||
+                          item.title.toLowerCase().includes('lễ tết');
       return isBrandLine || isBrandCat || isBrandName;
     });
   }, [contents, selectedMonth, selectedYear]);
@@ -409,14 +526,15 @@ export const TabBrandPlanning: React.FC = () => {
   // View mode in Schedule
   const [viewMode, setViewMode] = useState<'WEEK_CARDS' | 'SMART_TABLE'>('WEEK_CARDS');
   const [filterChannel, setFilterChannel] = useState<'ALL' | 'Facebook' | 'TikTok'>('ALL');
-  const [filterType, setFilterType] = useState<'ALL' | 'BRANDING' | 'ROBOT_BU'>('ALL');
+  const [filterType, setFilterType] = useState<'ALL' | 'BRANDING' | 'ROBOT_BU' | 'EVENT'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const filteredBrandContents = useMemo(() => {
     return brandContentsInMonth.filter(item => {
       if (filterChannel !== 'ALL' && item.channel !== filterChannel) return false;
-      if (filterType === 'BRANDING' && item.productLine === 'Linh Vật Robot BU') return false;
+      if (filterType === 'BRANDING' && (item.productLine === 'Linh Vật Robot BU' || item.productId === 'prod-brand-event' || item.title.includes('Sự Kiện') || item.title.includes('Lễ Tết'))) return false;
       if (filterType === 'ROBOT_BU' && item.productLine !== 'Linh Vật Robot BU') return false;
+      if (filterType === 'EVENT' && item.productId !== 'prod-brand-event' && !item.title.includes('Sự Kiện') && !item.title.includes('Lễ Tết')) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchTitle = item.title.toLowerCase().includes(q);
@@ -472,16 +590,19 @@ export const TabBrandPlanning: React.FC = () => {
     setIsGeneratingAi(true);
 
     const isMascot = generatingItem.productLine === 'Linh Vật Robot BU';
+    const isEvent = generatingItem.productId === 'prod-brand-event' || generatingItem.title.includes('Sự Kiện') || generatingItem.title.includes('Lễ Tết');
     const prod: Product = {
-      id: isMascot ? 'prod-robot-bu' : 'prod-branding',
-      name: isMascot ? 'Linh Vật Robot BU' : 'Bulbtek Việt Nam — Branding',
+      id: isMascot ? 'prod-robot-bu' : isEvent ? 'prod-brand-event' : 'prod-branding',
+      name: isMascot ? 'Linh Vật Robot BU' : isEvent ? 'Bulbtek — Sự Kiện & Lễ Tết' : 'Bulbtek Việt Nam — Branding',
       productLine: isMascot ? 'Linh Vật Robot BU' : 'Branding Sản Phẩm',
-      sku: isMascot ? 'BTK-MASCOT-BU' : 'BTK-BRAND-CORE',
+      sku: isMascot ? 'BTK-MASCOT-BU' : isEvent ? 'BTK-BRAND-EVENT' : 'BTK-BRAND-CORE',
       status: 'Hero Product',
       retailPrice: 'Vô giá (Tài sản thương hiệu)',
       coreBenefit: isMascot 
         ? (mascotIdeas[0] || 'Trợ thủ táp-lô thông minh, người bạn tin cậy vượt mọi cung đường đêm')
-        : (brandingIdeas[0] || 'BỀN BỈ – BỀN VỮNG – BẢO VỆ, triết lý An Toàn Hành Trình'),
+        : isEvent
+          ? (eventIdeas[0] || 'Dịp lễ tết trọng tâm: Lan tỏa văn hóa tăng sáng an toàn và bảo vệ hành trình')
+          : (brandingIdeas[0] || 'BỀN BỈ – BỀN VỮNG – BẢO VỆ, triết lý An Toàn Hành Trình'),
       suitableFor: 'Cả Hai',
       targetAudience: 'Cả hai',
       segment: 'Premium',
@@ -555,19 +676,30 @@ export const TabBrandPlanning: React.FC = () => {
     setGeneratingItem(null);
   };
 
-  // Add new Brand content item
-  const handleCreateNewBrandPost = (type: 'BRANDING' | 'ROBOT_BU') => {
+  // Add new Brand / BU / Event content item
+  const handleCreateNewBrandPost = (type: 'BRANDING' | 'ROBOT_BU' | 'EVENT') => {
     const isMascot = type === 'ROBOT_BU';
-    const dayStr = '15';
+    const isEvent = type === 'EVENT';
+    const firstHolDay = holidaysInMonth[0]?.day ? String(holidaysInMonth[0].day).padStart(2, '0') : '15';
+    const dayStr = isEvent ? firstHolDay : isMascot ? '18' : '10';
     const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${dayStr}`;
+    const holName = holidaysInMonth[0]?.holiday?.name;
     const newItem: ContentItem = {
       id: `content-brand-${Date.now()}`,
-      title: isMascot ? `🤖 [Robot BU] Kể chuyện cabin đèo đêm - Ngày ${dayStr}/${selectedMonth}` : `🛡️ [Branding] Cam kết 3 Giá trị cốt lõi - Ngày ${dayStr}/${selectedMonth}`,
-      creativeHeadline: isMascot ? 'Robot BU Đồng Hành — Thắp Sáng Mọi Cung Đường Đêm' : 'BULBTEK VIỆT NAM — Lời Cam Kết Bền Bỉ, Bền Vững & Bảo Vệ',
+      title: isMascot 
+        ? `🤖 [Robot BU] Kể chuyện cabin đèo đêm - Ngày ${dayStr}/${selectedMonth}` 
+        : isEvent
+          ? `🎉 [Sự Kiện & Lễ Tết] ${holName || `Chiến dịch tháng ${selectedMonth}`} - Ngày ${dayStr}/${selectedMonth}`
+          : `🛡️ [Branding] Cam kết 3 Giá trị cốt lõi - Ngày ${dayStr}/${selectedMonth}`,
+      creativeHeadline: isMascot 
+        ? 'Robot BU Đồng Hành — Thắp Sáng Mọi Cung Đường Đêm' 
+        : isEvent
+          ? `BULBTEK VIỆT NAM — Lan Tỏa Ánh Sáng Mùa Lễ Tết Tháng ${selectedMonth}`
+          : 'BULBTEK VIỆT NAM — Lời Cam Kết Bền Bỉ, Bền Vững & Bảo Vệ',
       channel: 'Facebook',
       date: dateStr,
-      productId: isMascot ? 'prod-robot-bu' : 'prod-branding',
-      productName: isMascot ? 'Linh Vật Robot BU' : 'Bulbtek Việt Nam — Branding',
+      productId: isMascot ? 'prod-robot-bu' : isEvent ? 'prod-brand-event' : 'prod-branding',
+      productName: isMascot ? 'Linh Vật Robot BU' : isEvent ? 'Bulbtek — Sự Kiện & Lễ Tết' : 'Bulbtek Việt Nam — Branding',
       productLine: isMascot ? 'Linh Vật Robot BU' : 'Branding Sản Phẩm',
       categoryId: isMascot ? 'cat-interaction' : 'cat-branding',
       status: 'Pending',
@@ -585,7 +717,7 @@ export const TabBrandPlanning: React.FC = () => {
   const totalBrandScheduled = brandContentsInMonth.length;
   const readyBrandCount = brandContentsInMonth.filter(c => c.facebookCaption || c.tiktokCaption).length;
   const approvedBrandCount = brandContentsInMonth.filter(c => c.status === 'Approved').length;
-  const targetTotal = brandingTarget + mascotTarget;
+  const targetTotal = brandingTarget + mascotTarget + eventTarget;
   const completionPct = targetTotal > 0 ? Math.min(100, Math.round((readyBrandCount / targetTotal) * 100)) : 0;
 
   return (
@@ -708,7 +840,7 @@ export const TabBrandPlanning: React.FC = () => {
               <span>Cấu Hình Mục Tiêu Tháng & Kênh Xuất Bản</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
               <div>
                 <label className={`block font-semibold mb-1 ${isLight ? 'text-slate-700' : 'text-gray-400'}`}>Tháng / Năm:</label>
                 <div className="flex space-x-2">
@@ -733,7 +865,7 @@ export const TabBrandPlanning: React.FC = () => {
               </div>
 
               <div>
-                <label className={`block font-semibold mb-1 ${isLight ? 'text-slate-700' : 'text-gray-400'}`}>Mục tiêu bài Branding:</label>
+                <label className={`block font-semibold mb-1 ${isLight ? 'text-slate-700' : 'text-gray-400'}`}>Tuyến 1: Branding:</label>
                 <input
                   type="number"
                   min={1}
@@ -745,7 +877,7 @@ export const TabBrandPlanning: React.FC = () => {
               </div>
 
               <div>
-                <label className={`block font-semibold mb-1 ${isLight ? 'text-slate-700' : 'text-gray-400'}`}>Mục tiêu bài Robot BU:</label>
+                <label className={`block font-semibold mb-1 ${isLight ? 'text-slate-700' : 'text-gray-400'}`}>Tuyến 2: Robot BU:</label>
                 <input
                   type="number"
                   min={1}
@@ -757,12 +889,24 @@ export const TabBrandPlanning: React.FC = () => {
               </div>
 
               <div>
+                <label className={`block font-semibold mb-1 ${isLight ? 'text-slate-700' : 'text-gray-400'}`}>Tuyến 3: Sự Kiện Lễ Tết:</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={eventTarget}
+                  onChange={(e) => setEventTarget(Math.max(1, parseInt(e.target.value) || 1))}
+                  className={`w-full p-2 rounded-xl border font-bold ${isLight ? 'bg-white border-slate-300' : 'bg-[#121215] border-[#2F2F37] text-white'}`}
+                />
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className={`block font-semibold ${isLight ? 'text-slate-700' : 'text-gray-400'}`}>
-                    Tỷ trọng kênh xuất bản:
+                    Tỷ trọng xuất bản:
                   </label>
                   <span className="text-[10px] font-mono text-amber-600 font-bold">
-                    Tổng: {fbChannelRatio + tiktokChannelRatio}%
+                    Tổng: {targetTotal} bài
                   </span>
                 </div>
                 
@@ -803,15 +947,15 @@ export const TabBrandPlanning: React.FC = () => {
                   <div style={{ width: `${tiktokChannelRatio}%` }} className="bg-cyan-500 h-full transition-all" title={`TikTok: ${tiktokChannelRatio}%`} />
                 </div>
                 <div className={`text-[10px] mt-1 flex justify-between ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
-                  <span>~{Math.round((brandingTarget + mascotTarget) * fbChannelRatio / 100)} bài Facebook</span>
-                  <span>~{Math.max(0, (brandingTarget + mascotTarget) - Math.round((brandingTarget + mascotTarget) * fbChannelRatio / 100))} bài TikTok</span>
+                  <span>~{Math.round(targetTotal * fbChannelRatio / 100)} bài Facebook</span>
+                  <span>~{Math.max(0, targetTotal - Math.round(targetTotal * fbChannelRatio / 100))} bài TikTok</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 2 TUYẾN Ý TƯỞNG SÁNG TẠO */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 3 TUYẾN Ý TƯỞNG SÁNG TẠO */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             
             {/* TUYẾN 1: BRANDING SẢN PHẨM */}
             <div className={`p-5 rounded-2xl border space-y-4 shadow-sm flex flex-col justify-between ${
@@ -1223,6 +1367,253 @@ export const TabBrandPlanning: React.FC = () => {
               </div>
             </div>
 
+            {/* TUYẾN 3: NỘI DUNG VỀ SỰ KIỆN TRONG THÁNG (DỊP LỄ & TẾT VIỆT NAM) */}
+            <div className={`p-5 rounded-2xl border space-y-4 shadow-sm flex flex-col justify-between ${
+              isLight ? 'bg-white border-slate-200' : 'bg-[#18181D] border-[#2A2A32]'
+            }`}>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                      <PartyPopper className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h3 className={`text-sm font-black ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                        Tuyến 3: Sự Kiện & Dịp Lễ Tết Trong Tháng
+                      </h3>
+                      <p className={`text-[11px] ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
+                        Lấy các ngày Lễ & Tết Việt Nam trọng tâm tháng {selectedMonth} làm bài viết Branding.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400">
+                    {eventIdeas.length} ý tưởng
+                  </span>
+                </div>
+
+                {/* 🇻🇳 Các ngày Dịp Lễ & Tết Việt Nam trong tháng */}
+                <div className={`p-3 rounded-xl border ${
+                  isLight ? 'bg-purple-50/60 border-purple-200 text-purple-950' : 'bg-purple-950/20 border-purple-800/40 text-purple-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold flex items-center space-x-1.5">
+                      <CalendarDays className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                      <span>Dịp Lễ & Tết Tháng {selectedMonth}/{selectedYear}:</span>
+                    </span>
+                    <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-300">
+                      {holidaysInMonth.length} ngày trọng tâm
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {holidaysInMonth.map((item) => (
+                      <button
+                        key={item.holiday.id}
+                        type="button"
+                        onClick={() => handleAddHolidayToEventIdeas(item.holiday, item.day)}
+                        className={`text-[11px] px-2 py-1 rounded-lg border font-medium flex items-center space-x-1 transition cursor-pointer ${
+                          isLight 
+                            ? 'bg-white hover:bg-purple-100 border-purple-200 text-purple-900 shadow-xs' 
+                            : 'bg-[#18181D] hover:bg-purple-900/40 border-purple-800/60 text-purple-200'
+                        }`}
+                        title={`Bấm để nạp ý tưởng: "${item.holiday.suggestedAngle}"`}
+                      >
+                        <span>{item.holiday.icon}</span>
+                        <span className="font-bold">{item.day}/{selectedMonth}:</span>
+                        <span>{item.holiday.name}</span>
+                        <Plus className="w-3 h-3 text-purple-500 opacity-70" />
+                      </button>
+                    ))}
+
+                    {holidaysInMonth.length === 0 && (
+                      <span className="text-[11px] text-gray-500 italic">
+                        Tháng {selectedMonth} tập trung vào các chiến dịch mùa và gắn kết cộng đồng bác tài.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Danh sách Event Idea inputs */}
+                <div className="space-y-2 pt-1">
+                  {eventIdeas.map((idea, idx) => (
+                    <div key={idx} className="flex items-start space-x-2">
+                      <span className="text-[11px] font-mono font-bold text-purple-600 mt-2 shrink-0">#{idx + 1}</span>
+                      <textarea
+                        rows={2}
+                        value={idea}
+                        onChange={(e) => handleUpdateEventIdea(idx, e.target.value)}
+                        placeholder={`Nhập ý tưởng sự kiện Lễ/Tết #${idx + 1}...`}
+                        className={`flex-1 p-2.5 rounded-xl border text-xs leading-relaxed focus:outline-none focus:border-purple-500 ${
+                          isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-[#121215] border-[#2F2F37] text-gray-200'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveEventIdea(idx)}
+                        className={`p-2 rounded-lg text-xs mt-1 transition ${
+                          isLight ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-500 hover:text-red-400 hover:bg-red-950/40'
+                        }`}
+                        title="Xóa ô ý tưởng này"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleAddEventIdea('')}
+                  className={`w-full py-2 rounded-xl border border-dashed text-xs font-bold flex items-center justify-center space-x-1.5 transition ${
+                    isLight ? 'border-purple-300 text-purple-700 hover:bg-purple-50' : 'border-purple-900/60 text-purple-400 hover:bg-purple-950/30'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Thêm ô nhập Idea Sự Kiện Lễ Tết</span>
+                </button>
+
+                {/* GỢI Ý XÂY DỰNG TUYẾN BÀI TỪ AI (SỰ KIỆN LỄ TẾT - KHÔNG TRÙNG LẶP) */}
+                <div className={`p-3.5 rounded-xl border space-y-3 ${
+                  isLight ? 'bg-purple-50/50 border-purple-200' : 'bg-purple-950/20 border-purple-900/40'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="p-1.5 rounded-lg bg-purple-600 text-white shadow-sm">
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </span>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="text-xs font-black uppercase tracking-wider text-purple-700 dark:text-purple-400">
+                            Gợi Ý Bài Viết Sự Kiện Lễ Tết Từ AI
+                          </h4>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20">
+                            0% Trùng Lặp ⚡
+                          </span>
+                        </div>
+                        <p className={`text-[10px] ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
+                          Phân tích các ngày lễ trọng tâm tháng {selectedMonth} và gắn với cam kết thương hiệu Bulbtek.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        type="button"
+                        onClick={handleGenerateNewEventAi}
+                        disabled={isGeneratingEventAi}
+                        className="px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-sm flex items-center space-x-1.5 transition disabled:opacity-50"
+                        title="Tạo các gợi ý mới từ AI theo sự kiện tháng này"
+                      >
+                        <RotateCw className={`w-3 h-3 ${isGeneratingEventAi ? 'animate-spin' : ''}`} />
+                        <span>{isGeneratingEventAi ? 'Đang phân tích...' : 'Lấy Gợi Ý Mới ⚡'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleResetHistory('EVENT')}
+                        className={`p-1.5 rounded-lg border text-[11px] transition ${
+                          isLight ? 'bg-white hover:bg-slate-100 border-slate-200 text-slate-500' : 'bg-[#18181D] hover:bg-[#202026] border-[#2A2A32] text-gray-400'
+                        }`}
+                        title="Làm mới lịch sử để duyệt lại toàn bộ kho ý tưởng"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Danh sách gợi ý từ AI */}
+                  <div className="space-y-2">
+                    {eventAiSuggestions.map((sug) => {
+                      const isAlreadyInUse = isIdeaDuplicate(sug.content, eventIdeas, []);
+                      return (
+                        <div
+                          key={sug.id}
+                          className={`p-2.5 rounded-xl border transition ${
+                            isLight 
+                              ? 'bg-white border-slate-200 hover:border-purple-300' 
+                              : 'bg-[#121215] border-[#2F2F37] hover:border-purple-800/60'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono">
+                              {sug.tag}
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-500 dark:text-gray-400 truncate">
+                              💡 {sug.angleHint}
+                            </span>
+                          </div>
+
+                          <p className={`text-[11px] leading-relaxed mb-2 ${isLight ? 'text-slate-800' : 'text-gray-200'}`}>
+                            {sug.content}
+                          </p>
+
+                          <div className="flex items-center justify-end space-x-1.5 pt-1 border-t border-dashed border-inherit">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyIdeaText(sug, 'EVENT')}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-semibold border flex items-center space-x-1 transition ${
+                                isLight ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700' : 'bg-[#18181D] hover:bg-[#202026] border-[#2A2A32] text-gray-300'
+                              }`}
+                              title="Sao chép nội dung ý tưởng vào Clipboard"
+                            >
+                              <Copy className="w-3 h-3 text-slate-500" />
+                              <span>Copy</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleApplyEventIdeaToInputs(sug)}
+                              disabled={isAlreadyInUse}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition ${
+                                isAlreadyInUse
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 cursor-default'
+                                  : 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm'
+                              }`}
+                              title={isAlreadyInUse ? 'Ý tưởng này đã có trong danh sách' : 'Thêm vào ô ý tưởng phía trên'}
+                            >
+                              {isAlreadyInUse ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                  <span>✓ Đã trong danh sách</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-3 h-3" />
+                                  <span>+ Dùng ý tưởng</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action buttons Tuyến 3 */}
+              <div className="pt-4 border-t border-inherit flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => handleTestCreativeAngle('EVENT')}
+                  disabled={isTestingAngle}
+                  className="px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{isTestingAngle ? 'Đang mô phỏng...' : '⚡ Thử Angle Sự Kiện Mẫu'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCreateNewBrandPost('EVENT')}
+                  className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Lên Lịch Bài Sự Kiện Mới</span>
+                </button>
+              </div>
+            </div>
+
           </div>
 
           {/* SIMULATOR OUTPUT BOX (NẾU ĐÃ BẤM THỬ) */}
@@ -1292,15 +1683,15 @@ export const TabBrandPlanning: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedBrandCategories(['BRANDING', 'ROBOT_BU', 'INTERACTION']);
-                    setBrandCategoryRatios({ BRANDING: 40, ROBOT_BU: 40, INTERACTION: 20 });
+                    setSelectedBrandCategories(['BRANDING', 'ROBOT_BU', 'HOLIDAY_EVENT', 'INTERACTION']);
+                    setBrandCategoryRatios({ BRANDING: 35, ROBOT_BU: 30, HOLIDAY_EVENT: 25, INTERACTION: 10 });
                   }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition flex items-center space-x-1 ${
                     isLight ? 'bg-white hover:bg-slate-50 border-slate-300 text-slate-700' : 'bg-[#121215] hover:bg-[#202026] border-[#2F2F37] text-gray-300'
                   }`}
                 >
                   <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Chọn cả 3 tuyến</span>
+                  <span>Chọn cả 4 tuyến</span>
                 </button>
 
                 <button
@@ -1322,7 +1713,7 @@ export const TabBrandPlanning: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <span className="font-bold flex items-center space-x-1.5">
                   <span>🎯 Tuyến được kích hoạt:</span>
-                  <strong className="text-sm font-black underline">{selectedBrandCategories.length} / 3 tuyến</strong>
+                  <strong className="text-sm font-black underline">{selectedBrandCategories.length} / 4 tuyến</strong>
                 </span>
                 <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
                   Tổng tỷ trọng: {Object.values(brandCategoryRatios).reduce((a, b) => a + b, 0)}%
@@ -1334,7 +1725,7 @@ export const TabBrandPlanning: React.FC = () => {
             </div>
 
             {/* Category Cards Interactive Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
               
               {/* CARD 1: BRANDING */}
               {(() => {
@@ -1473,7 +1864,75 @@ export const TabBrandPlanning: React.FC = () => {
                 );
               })()}
 
-              {/* CARD 3: TƯƠNG TÁC & MINIGAME */}
+              {/* CARD 3: SỰ KIỆN & LỄ TẾT */}
+              {(() => {
+                const isSelected = selectedBrandCategories.includes('HOLIDAY_EVENT');
+                const ratio = brandCategoryRatios.HOLIDAY_EVENT || 0;
+                return (
+                  <div
+                    onClick={() => toggleBrandCategory('HOLIDAY_EVENT')}
+                    role="button"
+                    tabIndex={0}
+                    className={`p-4 rounded-xl border space-y-3 relative overflow-hidden transition-all cursor-pointer select-none text-left ${
+                      isSelected
+                        ? isLight 
+                          ? 'bg-white border-purple-500 shadow-md ring-2 ring-purple-500/20 transform -translate-y-0.5' 
+                          : 'bg-[#18181D] border-purple-500 shadow-md ring-2 ring-purple-500/20 transform -translate-y-0.5'
+                        : isLight 
+                          ? 'bg-slate-50 border-dashed border-slate-300 opacity-55 hover:opacity-85' 
+                          : 'bg-[#121215] border-dashed border-[#2F2F37] opacity-50 hover:opacity-85'
+                    }`}
+                    style={{ borderTop: `4px solid ${isSelected ? '#9333EA' : '#64748B'}` }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`font-bold text-xs ${isSelected ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`}>
+                        SỰ KIỆN & LỄ TẾT (Events)
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center space-x-1 ${
+                        isSelected ? 'bg-emerald-500 text-white shadow-sm' : 'bg-gray-200 dark:bg-gray-800 text-gray-500'
+                      }`}>
+                        {isSelected ? <Check className="w-3 h-3 stroke-[3]" /> : null}
+                        <span>{isSelected ? `${ratio}% (Đã chọn)` : 'Bỏ qua (0%)'}</span>
+                      </span>
+                    </div>
+
+                    <p className={`text-[11px] leading-relaxed ${isSelected ? (isLight ? 'text-slate-600' : 'text-gray-300') : 'text-gray-400'}`}>
+                      Khai thác các ngày lễ tết trọng tâm tháng {selectedMonth}, kết nối triết lý an toàn giao thông và tình cảm sum vầy.
+                    </p>
+
+                    <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">
+                      Tone: Hân hoan, ấm áp, tri ân, gắn kết cộng đồng.
+                    </div>
+
+                    {isSelected && (
+                      <div className="pt-2 border-t border-dashed border-inherit space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-slate-500">Tỷ trọng tuyến bài:</span>
+                          <div className="flex items-center space-x-1">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={ratio}
+                              onChange={(e) => handleUpdateCategoryRatio('HOLIDAY_EVENT', Number(e.target.value))}
+                              className={`w-12 p-1 text-center rounded border font-bold text-xs ${
+                                isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-[#121215] border-[#2F2F37] text-white'
+                              }`}
+                            />
+                            <span className="font-bold">%</span>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-slate-500 flex justify-between">
+                          <span>Ước tính:</span>
+                          <strong className="text-purple-600 dark:text-purple-400 font-bold">~{Math.round(targetTotal * ratio / 100)} bài tháng</strong>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* CARD 4: TƯƠNG TÁC & MINIGAME */}
               {(() => {
                 const isSelected = selectedBrandCategories.includes('INTERACTION');
                 const ratio = brandCategoryRatios.INTERACTION || 0;
@@ -1636,9 +2095,10 @@ export const TabBrandPlanning: React.FC = () => {
                   isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-[#121215] border-[#2F2F37] text-gray-200'
                 }`}
               >
-                <option value="ALL">Tất cả tuyến (Brand + BU)</option>
+                <option value="ALL">Tất cả tuyến (Brand + BU + Sự Kiện)</option>
                 <option value="BRANDING">🛡️ Tuyến Branding</option>
                 <option value="ROBOT_BU">🤖 Tuyến Robot BU</option>
+                <option value="EVENT">🎉 Tuyến Sự Kiện & Lễ Tết</option>
               </select>
 
               {/* Chuyển chế độ xem */}
@@ -1709,6 +2169,15 @@ export const TabBrandPlanning: React.FC = () => {
                 <Plus className="w-3.5 h-3.5" />
                 <span>+ Thêm Bài Robot BU</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => handleCreateNewBrandPost('EVENT')}
+                className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition flex items-center space-x-1 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Thêm Bài Sự Kiện</span>
+              </button>
             </div>
           </div>
 
@@ -1731,6 +2200,7 @@ export const TabBrandPlanning: React.FC = () => {
                       {week.items.map((item) => {
                         const hasGenerated = Boolean(item.facebookCaption || item.tiktokCaption);
                         const isMascot = item.productLine === 'Linh Vật Robot BU';
+                        const isEvent = item.productId === 'prod-brand-event' || item.title.includes('Sự Kiện') || item.title.includes('Lễ Tết');
                         const compResult = checkBrandCompliance(
                           `${item.facebookCaption || ''} ${item.tiktokCaption || ''}`,
                           settings.complianceRules || DEFAULT_COMPLIANCE_RULES
@@ -1763,14 +2233,22 @@ export const TabBrandPlanning: React.FC = () => {
 
                               {/* Type Badge & Title */}
                               <div>
-                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded inline-flex items-center space-x-1 ${
-                                  isMascot
-                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                    : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
-                                }`}>
-                                  {isMascot ? <Bot className="w-3 h-3 inline mr-1" /> : <Shield className="w-3 h-3 inline mr-1" />}
-                                  <span>{isMascot ? 'Robot BU' : 'Branding'}</span>
-                                </span>
+                                {isEvent ? (
+                                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded inline-flex items-center space-x-1 bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                                    <Sparkles className="w-3 h-3 inline mr-1" />
+                                    <span>Sự Kiện Lễ Tết</span>
+                                  </span>
+                                ) : isMascot ? (
+                                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded inline-flex items-center space-x-1 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                    <Bot className="w-3 h-3 inline mr-1" />
+                                    <span>Robot BU</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded inline-flex items-center space-x-1 bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
+                                    <Shield className="w-3 h-3 inline mr-1" />
+                                    <span>Branding</span>
+                                  </span>
+                                )}
 
                                 <h4 className={`text-xs font-bold mt-1.5 line-clamp-2 leading-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
                                   {item.creativeHeadline || item.title}
@@ -1851,8 +2329,8 @@ export const TabBrandPlanning: React.FC = () => {
               {filteredBrandContents.length === 0 && (
                 <div className={`p-12 text-center rounded-2xl border ${isLight ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-[#121215] border-[#2F2F37] text-gray-400'}`}>
                   <Award className="w-10 h-10 mx-auto opacity-50 mb-2" />
-                  <p className="text-sm font-bold">Chưa có bài viết Thương hiệu / Robot BU nào trong tháng {selectedMonth}.</p>
-                  <p className="text-xs opacity-75 mt-1">Hãy bấm các nút "+ Thêm Bài Branding" hoặc "+ Thêm Bài Robot BU" ở trên để lên lịch.</p>
+                  <p className="text-sm font-bold">Chưa có bài viết Thương hiệu / Robot BU / Sự Kiện Lễ Tết nào trong tháng {selectedMonth}.</p>
+                  <p className="text-xs opacity-75 mt-1">Hãy bấm các nút "+ Thêm Bài Branding", "+ Thêm Bài Robot BU" hoặc "+ Thêm Bài Sự Kiện" ở trên để lên lịch.</p>
                 </div>
               )}
             </div>
@@ -1877,6 +2355,7 @@ export const TabBrandPlanning: React.FC = () => {
                   {filteredBrandContents.map((item) => {
                     const hasGenerated = Boolean(item.facebookCaption || item.tiktokCaption);
                     const isMascot = item.productLine === 'Linh Vật Robot BU';
+                    const isEvent = item.productId === 'prod-brand-event' || item.title.includes('Sự Kiện') || item.title.includes('Lễ Tết');
 
                     return (
                       <tr key={item.id} className={`transition ${isLight ? 'hover:bg-slate-50 text-slate-700' : 'hover:bg-[#18181D] text-gray-300'}`}>
@@ -1891,13 +2370,19 @@ export const TabBrandPlanning: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            isMascot
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                              : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
-                          }`}>
-                            {isMascot ? 'Robot BU' : 'Branding'}
-                          </span>
+                          {isEvent ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                              🎉 Sự Kiện Lễ Tết
+                            </span>
+                          ) : isMascot ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                              🤖 Robot BU
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
+                              🛡️ Branding
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-3 max-w-xs truncate font-semibold">
                           {item.creativeHeadline || item.title}
@@ -1963,8 +2448,10 @@ export const TabBrandPlanning: React.FC = () => {
                 <div>
                   <h3 className="text-sm sm:text-base font-black flex items-center space-x-2">
                     <span>AI Studio — Sáng Tạo Nội Dung Thương Hiệu Bulbtek</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                      {generatingItem.productLine === 'Linh Vật Robot BU' ? 'Linh Vật Robot BU' : 'Branding Sản Phẩm'}
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                      {generatingItem.productId === 'prod-brand-event' || generatingItem.title.includes('Sự Kiện') || generatingItem.title.includes('Lễ Tết')
+                        ? 'Sự Kiện & Lễ Tết'
+                        : generatingItem.productLine === 'Linh Vật Robot BU' ? 'Linh Vật Robot BU' : 'Branding Sản Phẩm'}
                     </span>
                   </h3>
                   <div className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>

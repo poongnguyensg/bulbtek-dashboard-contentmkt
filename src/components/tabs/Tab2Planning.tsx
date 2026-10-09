@@ -88,7 +88,7 @@ export const Tab2Planning: React.FC = () => {
   const [tiktokTarget, setTiktokTarget] = useState<number>(0);
   
   const hardwareProducts = useMemo(() => 
-    products.filter(p => p.productLine !== 'Branding Sản Phẩm' && p.productLine !== 'Linh Vật Robot BU'),
+    products.filter(p => !p.isHidden && p.productLine !== 'Branding Sản Phẩm' && p.productLine !== 'Linh Vật Robot BU'),
     [products]
   );
 
@@ -167,7 +167,7 @@ export const Tab2Planning: React.FC = () => {
   const [recurDayOfWeek, setRecurDayOfWeek] = useState<number>(1); // Monday
   const [recurDayOfMonth, setRecurDayOfMonth] = useState<number>(1);
   const [recurCatId, setRecurCatId] = useState<string>(categories[0]?.id || '');
-  const [recurProdId, setRecurProdId] = useState<string>(products[0]?.id || '');
+  const [recurProdId, setRecurProdId] = useState<string>(() => products.find(p => !p.isHidden)?.id || products[0]?.id || '');
   const [recurChannel, setRecurChannel] = useState<Channel>('Facebook');
 
   // Step Tabs: 'GOALS' = Bước 1 Content Product Planning, 'CATEGORIES' = Bước 2 Danh Mục, 'SCHEDULE' = Bước 3 Lịch Phân Bổ
@@ -962,59 +962,24 @@ export const Tab2Planning: React.FC = () => {
           </div>
         </div>
 
-        {/* Gateway Card Sang Tab Sáng Tạo Nội Dung Thương Hiệu & Linh Vật */}
-        <div className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition ${
-          isLight ? 'bg-amber-50/80 border-amber-200 text-amber-950 shadow-sm' : 'bg-amber-950/20 border-amber-500/40 text-amber-200'
-        }`}>
-          <div className="flex items-start sm:items-center space-x-3">
-            <span className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-600 dark:text-amber-300 shrink-0">
-              <Shield className="w-5 h-5" />
-            </span>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h4 className="text-xs font-black uppercase tracking-wider">
-                  Tuyến Nội Dung Thương Hiệu & Linh Vật Robot BU
-                </h4>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-sm">
-                  Tab Riêng Ngoài Menu (Tab 8) 🛡️
-                </span>
-              </div>
-              <p className={`text-xs mt-1 ${isLight ? 'text-amber-900/80' : 'text-gray-300'}`}>
-                Đã tách thành tab độc lập <strong>Content Branding Planning</strong> trên thanh điều hướng bên trái. Bấm để sang tab riêng quản trị ý tưởng thương hiệu & Robot BU!
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab(8)}
-            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 flex items-center space-x-1.5 transition shrink-0"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Mở Content Branding Planning ➔</span>
-          </button>
-        </div>
-
         {/* 📊 RATIO SUMMARY & GOLDEN BALANCE BAR */}
         <div className={`p-3.5 rounded-xl border ${isLight ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-[#121215] border-[#2F2F37] text-gray-300'}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs mb-2">
             <span className="font-bold flex items-center space-x-1.5">
               <Sparkles className="w-3.5 h-3.5 text-bulbtek-red" />
-              <span>Cân đối tỷ lệ nội dung tháng {selectedMonth}:</span>
+              <span>Cân đối tỷ lệ nội dung sản phẩm tháng {selectedMonth}:</span>
             </span>
             <div className="flex items-center space-x-3 text-[11px] font-mono">
-              <span className="text-red-600 font-bold">● Sản phẩm phần cứng: {selectedPushProductIds.length} SKU ({enableBranding ? '80%' : '100%'})</span>
-              <span className="text-amber-600 font-bold">● Branding cốt lõi: {enableBranding ? `Bật (${brandingIdeas.length} ideas - 20%)` : 'Tắt (0%)'}</span>
+              <span className="text-red-600 font-bold">● Sản phẩm phần cứng: {selectedPushProductIds.length} SKU (100%)</span>
             </div>
           </div>
 
           {/* Segmented Progress Bar */}
           <div className="h-2 w-full bg-slate-200 dark:bg-gray-800 rounded-full overflow-hidden flex">
-            <div style={{ width: enableBranding ? '80%' : '100%' }} className="bg-bulbtek-red h-full transition-all" title="Sản phẩm phần cứng Bulbtek" />
-            <div style={{ width: enableBranding ? '20%' : '0%' }} className="bg-amber-500 h-full transition-all" title="20% Branding" />
+            <div style={{ width: '100%' }} className="bg-bulbtek-red h-full transition-all" title="100% Sản phẩm phần cứng Bulbtek" />
           </div>
           <div className={`text-[11px] mt-1.5 flex items-center justify-between ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
-            <span>Quy chuẩn Content Product Planning: <strong>100% Sản Phẩm Phần Cứng & Triết Lý Tăng Sáng An Toàn</strong> (Bi-LED, Bi-Laser, Bi-Gầm, Bóng LED). Tuyến Robot BU được quản lý tại tab riêng.</span>
+            <span>Quy chuẩn Content Product Planning: <strong>100% Tập Trung Sáng Tạo Nội Dung Cho Sản Phẩm</strong> (Bi-LED, Bi-Laser, Bi-Gầm, Bóng LED, Trợ Sáng).</span>
             <span className="text-emerald-600 font-semibold">✓ Chuẩn sản phẩm</span>
           </div>
         </div>
@@ -1024,14 +989,6 @@ export const Tab2Planning: React.FC = () => {
           isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#121215] border-[#2F2F37]'
         }`}>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab(8)}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-sm flex items-center space-x-1.5 transition"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Kế Hoạch Thương Hiệu (Tab 8) ➔</span>
-            </button>
             <button
               type="button"
               onClick={() => setCurrentStepTab('CATEGORIES')}
@@ -1224,14 +1181,6 @@ export const Tab2Planning: React.FC = () => {
               }`}
             >
               ← Bước 1: Content Product Planning
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab(8)}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-sm flex items-center space-x-1.5 transition"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Kế Hoạch Thương Hiệu (Tab 8) ➔</span>
             </button>
           </div>
 
@@ -1752,7 +1701,7 @@ export const Tab2Planning: React.FC = () => {
                               isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-[#121215] border-[#2F2F37] text-white'
                             }`}
                           >
-                            {products.map(p => (
+                            {products.filter(p => !p.isHidden).map(p => (
                               <option key={p.id} value={p.id}>
                                 {p.name} {p.status === 'Hero Product' ? '🔥' : ''}
                               </option>
@@ -2582,7 +2531,7 @@ export const Tab2Planning: React.FC = () => {
                   isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-[#121215] border-[#2F2F37] text-white'
                 }`}
               >
-                {products.map(p => (
+                {products.filter(p => !p.isHidden).map(p => (
                   <option key={p.id} value={p.id}>{p.name} ({p.productLine})</option>
                 ))}
               </select>

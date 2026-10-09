@@ -1,3 +1,5 @@
+import { getHolidaysForMonth, VietnameseHoliday } from './vietnamHolidays';
+
 export interface BrandIdeaSuggestion {
   id: string;
   tag: string;
@@ -333,6 +335,136 @@ export function getUniqueMascotAiSuggestions(
     if (!isIdeaDuplicate(dyn.content, currentIdeas, usedHistory)) {
       results.push({
         id: `dyn-mc-${Date.now()}-${results.length}`,
+        tag: dyn.tag,
+        title: dyn.title,
+        content: dyn.content,
+        angleHint: dyn.hint
+      });
+    }
+  }
+
+  return results.slice(0, requestedCount);
+}
+
+// ==========================================
+// TUYẾN 3: NỘI DUNG SỰ KIỆN & LỄ TẾT TRONG THÁNG
+// ==========================================
+export function getUniqueEventHolidayAiSuggestions(
+  month: number,
+  year: number,
+  currentIdeas: string[],
+  usedHistory: string[],
+  requestedCount: number = 3
+): BrandIdeaSuggestion[] {
+  const holidays = getHolidaysForMonth(year, month);
+  const candidates: BrandIdeaSuggestion[] = [];
+
+  // 1. Sinh các ý tưởng góc nhìn Branding gắn liền với từng ngày lễ trong tháng
+  holidays.forEach((item, idx) => {
+    const h = item.holiday;
+    const dayStr = item.day ? ` (Ngày ${item.day}/${month})` : '';
+    
+    // Góc tiếp cận 1: Góc Cảm xúc & Lan tỏa giá trị An toàn thương hiệu
+    candidates.push({
+      id: `hol-${h.id}-1`,
+      tag: `#${h.name.replace(/[\s\(\)\/\-]/g, '')}`,
+      title: `${h.icon} ${h.name}${dayStr}: ${h.suggestedAngle.slice(0, 48)}...`,
+      content: `${h.name}${dayStr} — ${h.suggestedAngle}. Cam kết 3 giá trị cốt lõi Bền Bỉ – Bền Vững – Bảo Vệ, đồng hành bảo bọc từng khoảnh khắc sum vầy trọn vẹn.`,
+      angleHint: `Góc cảm xúc & trách nhiệm gia đình, gắn kết triết lý An Toàn Hành Trình của Bulbtek.`
+    });
+
+    // Góc tiếp cận 2: Góc Tri ân / Ưu đãi / Chăm sóc xế cưng mùa lễ
+    candidates.push({
+      id: `hol-${h.id}-2`,
+      tag: `#TriÂnMùaLễ_${month}`,
+      title: `🛡️ Chuyến đi an toàn dịp ${h.name}: Quy chuẩn cắm giắc zin sẵn sàng lăn bánh`,
+      content: `Dịp ${h.name}: "Trước mỗi chuyến đi xa đoàn viên hay du xuân, đừng quên kiểm tra mắt sáng xế cưng!" Ghé 300+ gara đối tác Bulbtek cân chỉnh luồng sáng chuẩn vạch cắt đăng kiểm, bảo vệ an toàn cho cả nhà.`,
+      angleHint: `Kêu gọi chủ xe ghé mạng lưới 300+ đại lý kiểm tra đèn trước dịp nghỉ lễ.`
+    });
+  });
+
+  // 2. Góc thời tiết & mùa đặc thù của tháng (bổ trợ nếu tháng ít ngày lễ lớn)
+  const seasonalAngles: Record<number, { tag: string; title: string; content: string; hint: string }[]> = {
+    1: [
+      { tag: '#KhaiXuânHanhThông', title: '🎆 Khai xuân rực rỡ — Vạn dặm bình an cùng luồng sáng mới', content: 'Khai xuân hanh thông đón tài lộc: Nâng cấp ánh sáng Bulbtek như một khởi đầu tươi sáng cho xế yêu, hanh thông cả năm trên mọi cung đường công danh sự nghiệp.', hint: 'May mắn đầu năm, tài lộc và an tâm xuất hành.' },
+      { tag: '#DuXuânAnToàn', title: '🚗 Chuyến xe du xuân trẩy hội — Không ngại mưa phùn sương giá', content: 'Mùa lễ hội đầu năm với những chuyến xuất hành về miền tâm linh: Nhiệt màu 4300K-5500K của Bulbtek bám chắc mặt đường ướt, phá sương mù vùng cao.', hint: 'Bám đường, phá sương trong thời tiết xuân ẩm ướt.' }
+    ],
+    2: [
+      { tag: '#DuXuânMiềnBắc', title: '🌸 Hành trình trẩy hội đầu năm qua các cung đèo Tây Bắc', content: 'Thử thách sương mù dày đặc vùng cao Tây Bắc dịp đầu xuân: Bi gầm Bulbtek nhiệt màu vàng nắng 3000K soi rõ từng mép vực, giúp bác tài vững tay lái khám phá vẻ đẹp tổ quốc.', hint: 'Du lịch trải nghiệm, khám phá danh lam thắng cảnh an toàn.' }
+    ],
+    3: [
+      { tag: '#TônVinhPháiĐẹp', title: '💐 Tháng của nàng — Món quà thấu hiểu cho các bóng hồng sau vô lăng', content: 'Tháng 3 tri ân một nửa thế giới: Nâng cấp ánh sáng không chói, góc chiếu cos rộng bao quát làn đường giúp chị em tự tin làm chủ tay lái trên những cung đường về khuya vắng vẻ.', hint: 'Sự quan tâm chu đáo của người thân đối với phụ nữ cầm lái.' }
+    ],
+    4: [
+      { tag: '#TourXuyênViệt30_4', title: '⭐ Chuẩn bị xế cưng cho kỳ nghỉ lễ vàng 30/4 & 1/5 xuyên Việt', content: 'Kỳ nghỉ lễ 30/4 dài ngày: Kiểm tra góc chiếu sáng và hệ thống tản nhiệt đèn xe tại đại lý Bulbtek toàn quốc, chuẩn bị hành trang hoàn hảo chinh phục dải đất hình chữ S.', hint: 'Chuẩn bị kỹ thuật xe trước tour dài ngày cùng gia đình.' }
+    ],
+    5: [
+      { tag: '#ChàoHèRựcRỡ', title: '☀️ Khởi động mùa hè: An tâm vi vu khám phá biển xanh', content: 'Chào hè rực rỡ với những chuyến caravan dã ngoại ven biển: Đèn Bulbtek chịu nhiệt độ cao trong khoang máy ngày hè, chuẩn chống nước IP68 tự tin vượt qua vùng triều cường ven biển.', hint: 'Độ bền chịu nhiệt cực hạn và chuẩn kháng nước IP68.' }
+    ],
+    6: [
+      { tag: '#GiaĐìnhLàSố1', title: '🎈 Chuyến xe tuổi thơ: Đưa con trẻ khám phá thế giới an toàn', content: 'Mùa hè và Tháng Gia Đình Việt Nam: Đằng sau tay lái là tiếng cười con trẻ, đằng trước là luồng sáng bám đường chở che. Bulbtek đồng hành kiến tạo kỷ niệm mùa hè rực rỡ và an toàn.', hint: 'Giá trị gia đình, bảo vệ con trẻ trên từng chuyến đi chơi xa.' }
+    ],
+    7: [
+      { tag: '#MùaMưaBãoNhiệtĐới', title: '🌧️ Mùa giông bão tháng 7: Bí quyết lái xe đêm mưa trắng trời', content: 'Mùa mưa bão nhiệt đới: Khi mưa rào như trút nước và mặt đường phản chiếu ánh sáng nguy hiểm, thấu kính AR Crystal của Bulbtek gom luồng sáng bám chặt mặt đường, triệt tiêu ảo giác.', hint: 'Kỹ năng lái xe an toàn mùa mưa bão lớn, chứng minh công nghệ thấu kính.' }
+    ],
+    8: [
+      { tag: '#HàoKhíMùaThu', title: '🇻🇳 Tự hào tháng 8 lịch sử: Sải bước vươn tầm công nghệ Việt', content: 'Kỷ niệm Cách Mạng Tháng 8: Tự hào tinh thần tự lực tự cường của người Việt. Bulbtek kiên định đầu tư R&D chuẩn hóa quy trình kỹ thuật, mang chuẩn mực quốc tế về phục vụ tài xế Việt.', hint: 'Tự hào dân tộc và sứ mệnh nâng tầm công nghệ chiếu sáng tại Việt Nam.' }
+    ],
+    9: [
+      { tag: '#TựHàoQuốcKhánh', title: '🇻🇳 Rực rỡ cờ hoa Tết Độc Lập 2/9: Vạn dặm non sông sáng ngời', content: 'Đại lễ Quốc Khánh 2/9: Tự hào ngắm nhìn dải đất Việt Nam thắp sáng cờ hoa rực rỡ. Bulbtek tri ân hàng triệu khách hàng đã tin tưởng chọn luồng sáng văn minh trên khắp 63 tỉnh thành.', hint: 'Tự hào đất nước, gắn kết thương hiệu với ngày lễ trọng đại của dân tộc.' },
+      { tag: '#MùaTrăngĐoànViên', title: '🌕 Rằm Trung Thu sum vầy: Ánh sáng bình yên trên mọi góc phố', content: 'Đêm rằm Trung Thu: Luồng sáng cos mặt phẳng Bulbtek chiếu rõ từng bước chân trẻ thơ rước đèn, giữ trọn vẹn niềm vui đoàn viên dưới ánh trăng rằm.', hint: 'Ấm áp, đoàn viên gia đình.' }
+    ],
+    10: [
+      { tag: '#ThủĐô70Năm', title: '⭐ Khúc tráng ca Hà Nội 10/10: Ánh sáng văn minh nơi phố cổ', content: 'Chào mừng ngày Giải Phóng Thủ Đô 10/10: Nét cắt cos phẳng mịn của Bulbtek hòa vào nhịp sống văn minh Hà thành — Chiếu sáng rạng rỡ mặt đường mà tuyệt đối không chói mắt người đối diện.', hint: 'Văn hóa chiếu sáng văn minh, tôn vinh nét đẹp thanh lịch thủ đô.' },
+      { tag: '#TônVinhDoanhNhân', title: '💼 Ngày Doanh Nhân 13/10: Đồng hành cùng 300+ chủ Gara bản lĩnh', content: 'Tri ân hơn 300 chủ gara, xưởng độ xe trên toàn quốc: Tinh thần dám nghĩ dám làm của các doanh nhân đã đưa chuẩn mực an toàn chiếu sáng đến mọi miền tổ quốc. Bulbtek cam kết đồng hành bền vững.', hint: 'Khẳng định quan hệ đối tác B2B keo sơn, bền vững.' },
+      { tag: '#YêuThương20_10', title: '🌸 Ngày Phụ Nữ Việt Nam 20/10: Sự chở che dịu dàng sau vô lăng', content: 'Ngày 20/10: "Món quà tuyệt vời nhất cho người phụ nữ yêu thương là sự an tâm mỗi khi tan làm về muộn." Đèn Bulbtek soi sáng mọi ngõ ngách, xua tan nỗi sợ lái xe đêm.', hint: 'Chạm đến trái tim phụ nữ và người đàn ông trụ cột gia đình.' }
+    ],
+    11: [
+      { tag: '#TriÂnThầyCô20_11', title: '📚 Tri ân Ngày Nhà Giáo 20/11: Ánh sáng tri thức dẫn lối tương lai', content: 'Ngày Nhà Giáo Việt Nam 20/11: Như ngọn đèn tri thức soi đường cho bao thế hệ học trò cập bến vinh quang, Bulbtek kính chúc quý thầy cô vạn dặm bình an và luôn giữ trọn ngọn lửa nhiệt huyết.', hint: 'Tri ân người thầy, gắn kết hình ảnh ngọn đèn tri thức soi sáng tương lai.' },
+      { tag: '#MùaSănMâyĐông', title: '🏔️ Mùa săn mây chớm đông: Chinh phục Tà Xùa, Sa Pa kỳ vĩ', content: 'Mùa đông chớm lạnh và những chuyến phượt đèo săn mây: Đèn trợ sáng và bi gầm Bulbtek nhiệt màu 3000K là chìa khóa vàng giúp tài xế xuyên qua biển sương mù dày đặc vùng cao.', hint: 'Phong cách sống dã ngoại, phượt mạo hiểm và thể hiện công năng phá sương.' }
+    ],
+    12: [
+      { tag: '#TriÂnBộĐộiCụHồ', title: '🎖️ Ngày Thành Lập QĐND 22/12: Phẩm chất kiên trung, bền bỉ vượt bão', content: 'Kỷ niệm ngày Quân Đội Nhân Dân Việt Nam 22/12: Tôn vinh phẩm chất kiên cường của người lính. Tinh thần thép ấy cũng là tiêu chuẩn khắt khe để Bulbtek tôi luyện từng bộ đèn bền bỉ qua năm tháng.', hint: 'Tôn vinh sự kiên cường và phẩm chất bền bỉ vượt thời gian.' },
+      { tag: '#GiángSinhAnLành', title: '🎄 Mùa Giáng Sinh an lành: Ngọn lửa ấm áp sưởi ấm đêm đông', content: 'Đêm Noel 24/12: Giữa tiết trời mùa đông sương lạnh, dải nhiệt màu ấm áp của Bulbtek xua tan băng giá, đưa xế yêu cùng cả gia đình cập bến an lành ngập tràn tiếng cười.', hint: 'Ấm áp, đoàn tụ và lan tỏa năng lượng tích cực mùa lễ hội.' },
+      { tag: '#KhépLạiNămCũ', title: '⏳ Đêm Giao Thừa 31/12: Nhìn lại một năm vạn dặm bình an cùng bác tài', content: 'Đếm ngược sang năm mới: Hàng triệu km đường đêm đã qua, Bulbtek tự hào là người bạn bảo vệ tin cậy cho mỗi chuyến đi. Cảm ơn quý khách hàng và các đối tác đã luôn đồng hành vững bước!', hint: 'Tổng kết cuối năm, lòng biết ơn sâu sắc và lời chúc năm mới khởi sắc.' }
+    ]
+  };
+
+  const monthSeasonal = seasonalAngles[month] || [];
+  monthSeasonal.forEach((item, idx) => {
+    candidates.push({
+      id: `season-${month}-${idx}`,
+      tag: item.tag,
+      title: item.title,
+      content: item.content,
+      angleHint: item.hint
+    });
+  });
+
+  // 3. Lọc trừ các ý tưởng trùng lặp với danh sách hiện có và lịch sử đã dùng
+  const available = candidates.filter(item => {
+    return !isIdeaDuplicate(item.content, currentIdeas, usedHistory) &&
+           !isIdeaDuplicate(item.title, currentIdeas, usedHistory);
+  });
+
+  if (available.length >= requestedCount) {
+    // Shuffle nhẹ để mỗi lần bấm "Lấy Gợi Ý Mới" sẽ ra các góc tiếp cận phong phú
+    const shuffled = [...available].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, requestedCount);
+  }
+
+  // Nếu còn ít, bổ sung thêm biến thể động theo tháng
+  const results = [...available];
+  const dynamicHolidayThemes = [
+    { tag: `#SựKiệnTháng${month}`, title: `🎉 Chiến dịch truyền thông Tháng ${month}: Lan tỏa thông điệp an toàn giao thông`, content: `Chiến dịch thương hiệu Tháng ${month}: Bulbtek phát động phong trào "Bật đèn đúng lúc - Hạ cos văn minh" nhân dịp các sự kiện trọng tâm trong tháng, kêu gọi cộng đồng chung tay xây dựng văn hóa giao thông đẹp.`, hint: `Hoạt động CSR vì cộng đồng mùa sự kiện trong tháng.` },
+    { tag: `#ĐồngHànhCùngBácTài`, title: `🛠️ Trạm kiểm tra ánh sáng miễn phí tháng ${month} tại 300+ đại lý`, content: `Nhân các dịp lễ đặc biệt trong tháng ${month}, ghé bất kỳ trung tâm ủy quyền Bulbtek để nhận dịch vụ cân chỉnh góc chiếu đèn xe miễn phí 100%, tự tin vi vu mọi cung đường an toàn!`, hint: `Kêu gọi hành động thực tế, gia tăng lượng ghé thăm gara đại lý.` }
+  ];
+
+  for (const dyn of dynamicHolidayThemes) {
+    if (results.length >= requestedCount) break;
+    if (!isIdeaDuplicate(dyn.content, currentIdeas, usedHistory)) {
+      results.push({
+        id: `dyn-hol-${Date.now()}-${results.length}`,
         tag: dyn.tag,
         title: dyn.title,
         content: dyn.content,

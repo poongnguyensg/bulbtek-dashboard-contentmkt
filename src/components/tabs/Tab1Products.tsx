@@ -19,7 +19,9 @@ import {
   Download,
   Upload,
   Image as ImageIcon,
-  X
+  X,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { BulkProductImportModal } from '../modals/BulkProductImportModal';
 import { downloadTemplateExcel } from '../../services/productImportService';
@@ -103,7 +105,8 @@ export const Tab1Products: React.FC = () => {
       coreBenefit: '',
       stage: 'Launch',
       internalNotes: '',
-      imageUrl: ''
+      imageUrl: '',
+      isHidden: false
     };
     setSelectedProduct(null);
     setFormData(newProduct);
@@ -162,6 +165,26 @@ export const Tab1Products: React.FC = () => {
     }
   };
 
+  const handleToggleHideProduct = (prod: Product) => {
+    const nextHidden = !prod.isHidden;
+    const updated: Product = {
+      ...prod,
+      isHidden: nextHidden,
+      updatedAt: new Date().toISOString()
+    };
+    saveProduct(updated);
+    if (selectedProduct?.id === prod.id) {
+      setSelectedProduct(updated);
+      setFormData(prev => ({ ...prev, isHidden: nextHidden }));
+    }
+    setSaveMessage(
+      nextHidden 
+        ? `👁️‍🗨️ Đã ẩn "${prod.name}" khỏi Lập kế hoạch & content!` 
+        : `👁️ Đã hiển thị lại "${prod.name}" trong Lập kế hoạch & content!`
+    );
+    setTimeout(() => setSaveMessage(null), 3500);
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -211,6 +234,7 @@ export const Tab1Products: React.FC = () => {
       stage: (formData.stage as ProductStage) || 'Growth',
       internalNotes: formData.internalNotes || '',
       imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?w=600&auto=format&fit=crop&q=80',
+      isHidden: Boolean(formData.isHidden),
       createdAt: formData.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -467,9 +491,41 @@ export const Tab1Products: React.FC = () => {
                     </div>
 
                     <div className="flex items-center space-x-1.5 shrink-0">
+                      {prod.isHidden && (
+                        <span 
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center space-x-1" 
+                          title="Sản phẩm đang ẩn khỏi Lập kế hoạch & content"
+                        >
+                          <EyeOff className="w-2.5 h-2.5" />
+                          <span>Đã ẩn</span>
+                        </span>
+                      )}
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getStatusBadgeColor(prod.status)}`}>
                         {prod.status}
                       </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleHideProduct(prod);
+                        }}
+                        className={`p-1.5 rounded-lg transition ${
+                          prod.isHidden
+                            ? isLight 
+                              ? 'text-amber-700 bg-amber-100 hover:bg-amber-200 ring-1 ring-amber-300' 
+                              : 'text-amber-300 bg-amber-500/20 hover:bg-amber-500/30 ring-1 ring-amber-500/40'
+                            : isLight 
+                              ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' 
+                              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                        }`}
+                        title={
+                          prod.isHidden 
+                            ? `Sản phẩm "${prod.name}" đang bị ẩn khỏi Lập kế hoạch & content. Bấm để hiển thị lại.` 
+                            : `Ẩn sản phẩm "${prod.name}" (không hiện lên trong Lập kế hoạch & content)`
+                        }
+                      >
+                        {prod.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -670,6 +726,26 @@ export const Tab1Products: React.FC = () => {
                       <option key={status} value={status}>{status}</option>
                     ))}
                   </select>
+                </div>
+
+                {/* Trạng thái hiển thị (Ẩn / Hiện) */}
+                <div>
+                  <label className={labelClass}>Hiển thị trong Lập kế hoạch</label>
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('isHidden', !formData.isHidden)}
+                    className={`w-full py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition ${
+                      formData.isHidden
+                        ? isLight ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                        : isLight ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                    }`}
+                  >
+                    <span className="flex items-center space-x-1.5">
+                      {formData.isHidden ? <EyeOff className="w-3.5 h-3.5 text-amber-500" /> : <Eye className="w-3.5 h-3.5 text-emerald-500" />}
+                      <span>{formData.isHidden ? 'Đang ẩn khỏi Tab 2' : 'Hiển thị bình thường'}</span>
+                    </span>
+                    <span className="text-[10px] font-bold opacity-80">Bấm đổi</span>
+                  </button>
                 </div>
 
                 {/* Giá bán lẻ */}

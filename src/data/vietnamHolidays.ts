@@ -132,6 +132,16 @@ export const VIETNAMESE_HOLIDAYS: VietnameseHoliday[] = [
     suggestedAngle: 'Ánh sáng trăng rằm, trọn vẹn niềm vui rước đèn đoàn viên cùng xế yêu'
   },
   {
+    id: 'giai-phong-thu-do',
+    name: 'Ngày Giải Phóng Thủ Đô',
+    shortLabel: '⭐ 10/10 Giải Phóng Thủ Đô',
+    month: 10,
+    day: 10,
+    type: 'National',
+    icon: '⭐',
+    suggestedAngle: 'Hào khí Thăng Long 70 năm rạng rỡ, Bulbtek tự hào thắp sáng cờ hoa muôn nẻo đường Thủ Đô'
+  },
+  {
     id: 'doanh-nhan-vn',
     name: 'Ngày Doanh Nhân Việt Nam',
     shortLabel: '💼 Doanh Nhân VN',
@@ -139,7 +149,7 @@ export const VIETNAMESE_HOLIDAYS: VietnameseHoliday[] = [
     day: 13,
     type: 'Commemorative',
     icon: '💼',
-    suggestedAngle: 'Tri ân hơn 300 chủ gara, đối tác đại lý doanh nhân năng động của Bulbtek'
+    suggestedAngle: 'Tri ân hơn 300 chủ gara, đối tác đại lý doanh nhân năng động của Bulbtek trên toàn quốc'
   },
   {
     id: 'phu-nu-vn-20-10',
@@ -152,6 +162,16 @@ export const VIETNAMESE_HOLIDAYS: VietnameseHoliday[] = [
     suggestedAngle: 'Món quà an toàn cho người phụ nữ yêu thương trên từng chuyến đi làm về tối'
   },
   {
+    id: 'halloween',
+    name: 'Lễ Hội Halloween',
+    shortLabel: '🎃 Halloween',
+    month: 10,
+    day: 31,
+    type: 'Commemorative',
+    icon: '🎃',
+    suggestedAngle: 'Xua tan bóng tối đêm Halloween: Bật sáng đèn Bulbtek, vững tay lái không lo điểm mù góc khuất'
+  },
+  {
     id: 'nha-giao-vn-20-11',
     name: 'Ngày Nhà Giáo Việt Nam',
     shortLabel: '📚 20/11 Nhà Giáo',
@@ -160,6 +180,16 @@ export const VIETNAMESE_HOLIDAYS: VietnameseHoliday[] = [
     type: 'Commemorative',
     icon: '📚',
     suggestedAngle: 'Tri ân người lái đò thầm lặng đưa bao thế hệ cập bến tri thức'
+  },
+  {
+    id: 'quan-doi-ndvn',
+    name: 'Ngày Thành Lập QĐND Việt Nam',
+    shortLabel: '🎖️ 22/12 QĐND Việt Nam',
+    month: 12,
+    day: 22,
+    type: 'National',
+    icon: '🎖️',
+    suggestedAngle: 'Tri ân người lính Cụ Hồ can trường, phẩm chất bền bỉ vượt mọi gian khó như đèn Bulbtek'
   },
   {
     id: 'giang-sinh-noel',
@@ -205,10 +235,20 @@ export function getHolidaysForMonth(year: number, month: number): { day: number;
   for (let d = 1; d <= daysInMonth; d++) {
     const dStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const hol = getHolidayForDate(dStr);
-    if (hol) {
+    if (hol && !results.some(r => r.holiday.id === hol.id)) {
       results.push({ day: d, dateStr: dStr, holiday: hol });
     }
   }
 
-  return results;
+  // Bổ sung các ngày lễ cố định theo tháng nếu chưa được quét
+  const monthHolidays = VIETNAMESE_HOLIDAYS.filter(h => h.month === month);
+  for (const h of monthHolidays) {
+    if (!results.some(r => r.holiday.id === h.id)) {
+      const d = h.day || 15;
+      const dStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      results.push({ day: d, dateStr: dStr, holiday: h });
+    }
+  }
+
+  return results.sort((a, b) => a.day - b.day);
 }

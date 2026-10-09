@@ -42,6 +42,7 @@ export interface Product {
   stage: ProductStage;
   internalNotes?: string;
   imageUrl?: string;
+  isHidden?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { BulkProductImportModal } from '../modals/BulkProductImportModal';
 import { downloadTemplateExcel } from '../../services/productImportService';
+import { uploadImageFile } from '../../services/api';
 
 const PRODUCT_LINES: ProductLine[] = [
   'Bi LED',
@@ -199,11 +200,20 @@ export const Tab1Products: React.FC = () => {
     }
 
     try {
-      // Tự động thu nhỏ và nén ảnh chất lượng cao để đảm bảo dung lượng siêu nhẹ (~30-50KB)
-      const compressedDataUrl = await compressImageFile(file, 600, 0.7);
-      handleInputChange('imageUrl', compressedDataUrl);
-      setSaveMessage('📸 Đã nén và tải ảnh sản phẩm thành công (tối ưu bộ nhớ)!');
-      setTimeout(() => setSaveMessage(null), 3000);
+      setSaveMessage('⏳ Đang xử lý và tải ảnh lên server...');
+      try {
+        // 1. Tải file vật lý lên server/uploads qua Backend API
+        const uploadedUrl = await uploadImageFile(file);
+        handleInputChange('imageUrl', uploadedUrl);
+        setSaveMessage('📸 Đã lưu ảnh sản phẩm vào thư mục server/uploads thành công!');
+      } catch (uploadErr) {
+        console.warn('Backend upload chưa sẵn sàng, dùng giải pháp nén ảnh canvas dự phòng:', uploadErr);
+        // 2. Dự phòng: nén ảnh canvas base64 siêu nhẹ (< 50KB)
+        const compressedDataUrl = await compressImageFile(file, 600, 0.7);
+        handleInputChange('imageUrl', compressedDataUrl);
+        setSaveMessage('📸 Đã nén và lưu ảnh sản phẩm (chế độ dự phòng)!');
+      }
+      setTimeout(() => setSaveMessage(null), 3500);
     } catch (err) {
       alert('Không thể xử lý tệp ảnh này. Vui lòng thử lại với một ảnh khác!');
     }

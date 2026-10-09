@@ -20,6 +20,14 @@ import {
   INITIAL_EMAIL_LOGS, 
   INITIAL_SETTINGS 
 } from '../data/initialData';
+import { 
+  apiGetProducts, apiSaveProduct, apiDeleteProduct, apiBulkAddProducts,
+  apiGetCategories, apiSaveCategory,
+  apiGetContents, apiSaveContent, apiDeleteContent, apiBulkAddContents,
+  apiGetTeam, apiSaveTeamMember, apiUpdateUserRole,
+  apiGetSettings, apiSaveSettings,
+  apiGetMemory, apiAddMemory, apiClearMemory
+} from '../services/api';
 
 interface AppContextType {
   // Navigation & Role & Theme
@@ -243,6 +251,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [settings]);
 
+  // 1. Đồng bộ dữ liệu tập trung từ PostgreSQL Backend khi khởi động ứng dụng
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDataFromBackend = async () => {
+      try {
+        const [prods, cats, conts, team, sets, mems] = await Promise.allSettled([
+          apiGetProducts(),
+          apiGetCategories(),
+          apiGetContents(),
+          apiGetTeam(),
+          apiGetSettings(),
+          apiGetMemory()
+        ]);
+
+        if (!isMounted) return;
+
+        if (prods.status === 'fulfilled' && Array.isArray(prods.value) && prods.value.length > 0) {
+          setProducts(prods.value);
+          if (!selectedProduct) setSelectedProduct(prods.value[0]);
+        }
+        if (cats.status === 'fulfilled' && Array.isArray(cats.value) && cats.value.length > 0) {
+          setCategories(cats.value);
+        }
+        if (conts.status === 'fulfilled' && Array.isArray(conts.value) && conts.value.length > 0) {
+          setContents(conts.value);
+        }
+        if (team.status === 'fulfilled' && Array.isArray(team.value) && team.value.length > 0) {
+          setUsers(team.value);
+        }
+        if (sets.status === 'fulfilled' && sets.value) {
+          setSettings(sets.value);
+        }
+        if (mems.status === 'fulfilled' && Array.isArray(mems.value)) {
+          setContentMemory(mems.value);
+        }
+      } catch (err) {
+        console.warn('Backend API tạm thời chưa sẵn sàng, sử dụng bộ nhớ cục bộ:', err);
+      }
+    };
+
+    loadDataFromBackend();
+    return () => { isMounted = false; };
+  }, []);
+
   // Content Memory (Anti-Duplication Engine)
   const [contentMemory, setContentMemory] = useState<ContentMemoryEntry[]>(() => {
     const saved = localStorage.getItem('btk_content_memory');
@@ -250,7 +303,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   useEffect(() => {
-    localStorage.setItem('btk_content_memory', JSON.stringify(contentMemory));
+    try {
+      localStorage.setItem('btk_content_memory', JSON.stringify(contentMemory));
+    } catch (_) {}
   }, [contentMemory]);
 
   const addContentMemory = (entry: Omit<ContentMemoryEntry, 'id' | 'createdAt'>): ContentMemoryEntry => {
@@ -260,6 +315,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
     setContentMemory(prev => [newEntry, ...prev]);
+
+    // Đồng bộ lên PostgreSQL Backend
+    apiAddMemory(entry).catch(err => console.warn('Lỗi đồng bộ memory lên DB:', err));
+
     return newEntry;
   };
 
@@ -269,6 +328,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       setContentMemory([]);
     }
+
+    // Xóa trên PostgreSQL Backend
+    apiClearMemory(productId).catch(err => console.warn('Lỗi xóa memory trên DB:', err));
   };
 
   const getMemoryForProduct = (productId: string): ContentMemoryEntry[] => {
@@ -277,16 +339,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Actions
   const saveProduct = (product: Product) => {
+    const updatedProd: Product = {
+      ...product,
+      updatedAt: new Date().toISOString()
+    };
+
     setProducts(prev => {
       const idx = prev.findIndex(p => p.id === product.id);
       if (idx >= 0) {
         const copy = [...prev];
-        copy[idx] = { ...product, updatedAt: new Date().toISOString() };
+        copy[idx] = updatedProd;
         return copy;
       }
-      return [...prev, { ...product, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+      return [...prev, updatedProd];
     });
-    setSelectedProduct(product);
+    setSelectedProduct(updatedProd);
+
+    // Lưu bền vững vào cơ sở dữ liệu PostgreSQL
+    apiSaveProduct(updatedProd).catch(err => {
+      console.warn('Lỗi lưu sản phẩm vào PostgreSQL (đang dùng fallback local):', err);
+    });
   };
 
   const bulkAddProducts = (newProducts: Product[], overwriteExisting: boolean = true): { added: number; updated: number; total: number } => {
@@ -324,6 +396,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return currentList;
     });
 
+    // Đồng bộ hàng loạt vào PostgreSQL
+    apiBulkAddProducts(newProducts, overwriteExisting).catch(err => {
+      console.warn('Lỗi nhập hàng loạt sản phẩm vào PostgreSQL:', err);
+    });
+
     return { added: addedCount, updated: updatedCount, total: newProducts.length };
   };
 
@@ -332,6 +409,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (selectedProduct?.id === id) {
       setSelectedProduct(null);
     }
+
+    // Xóa trên PostgreSQL
+    apiDeleteProduct(id).catch(err => {
+      console.warn('Lỗi xóa sản phẩm trên PostgreSQL:', err);
+    });
   };
 
   const addCategory = (cat: Omit<Category, 'id'>) => {
@@ -340,6 +422,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `cat-${Date.now()}`
     };
     setCategories(prev => [...prev, newCat]);
+
+    // Lưu vào PostgreSQL
+    apiSaveCategory(newCat).catch(err => {
+      console.warn('Lỗi lưu danh mục vào PostgreSQL:', err);
+    });
   };
 
   const saveContentItem = (item: ContentItem) => {
@@ -352,6 +439,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return [...prev, item];
     });
+
+    // Lưu bài viết vào PostgreSQL
+    apiSaveContent(item).catch(err => {
+      console.warn('Lỗi lưu bài viết vào PostgreSQL:', err);
+    });
   };
 
   const deleteContentItem = (id: string) => {
@@ -361,6 +453,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!confirmDelete) return;
     }
     setContents(prev => prev.filter(c => c.id !== id));
+
+    // Xóa bài viết trên PostgreSQL
+    apiDeleteContent(id).catch(err => {
+      console.warn('Lỗi xóa bài viết trên PostgreSQL:', err);
+    });
   };
 
   const addUser = (member: Omit<TeamMember, 'id' | 'addedDate'>) => {
@@ -370,10 +467,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addedDate: new Date().toISOString().split('T')[0]
     };
     setUsers(prev => [...prev, newMember]);
+
+    // Lưu nhân sự vào PostgreSQL
+    apiSaveTeamMember(newMember).catch(err => {
+      console.warn('Lỗi lưu nhân sự vào PostgreSQL:', err);
+    });
   };
 
   const updateUserRole = (id: string, role: UserRole) => {
     setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u));
+
+    // Cập nhật vai trò trên PostgreSQL
+    apiUpdateUserRole(id, role).catch(err => {
+      console.warn('Lỗi cập nhật vai trò nhân sự trên PostgreSQL:', err);
+    });
   };
 
   // Workflow logic
@@ -768,6 +875,11 @@ Slogan: An Toàn Hành Trình - Trợ Thủ Đắc Lực Cho Bác Tài Việt`;
         c.id.startsWith('content-brand-')
       );
       return [...otherMonthsOrPreserved, ...newGeneratedItems];
+    });
+
+    // Đồng bộ toàn bộ bài viết mới tạo vào cơ sở dữ liệu PostgreSQL
+    apiBulkAddContents(newGeneratedItems).catch(err => {
+      console.warn('Lỗi lưu kế hoạch tự động vào PostgreSQL:', err);
     });
   };
 

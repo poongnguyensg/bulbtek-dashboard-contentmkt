@@ -13,21 +13,30 @@ const { Pool } = pg;
 
 const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
-// Tự động cấu hình SSL phù hợp (Local vs Cloud PostgreSQL)
-const poolConfig = {
-  connectionString: connectionString || 'postgresql://postgres:postgres@localhost:5432/bulbtek_content',
-  connectionTimeoutMillis: 5000,
-  idleTimeoutMillis: 30000,
-  max: 20
-};
-
-if (connectionString && !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1')) {
-  poolConfig.ssl = {
-    rejectUnauthorized: false
+// Tự động cấu hình SSL phù hợp (Local vs Internal vs Cloud PostgreSQL)
+function createPoolConfig(useSsl) {
+  const config = {
+    connectionString: connectionString || 'postgresql://postgres:postgres@localhost:5432/bulbtek_content',
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+    max: 20
   };
+
+  if (useSsl) {
+    config.ssl = { rejectUnauthorized: false };
+  } else {
+    config.ssl = false;
+  }
+  return config;
 }
 
-export const pool = new Pool(poolConfig);
+// Chỉ bật SSL nếu chuỗi kết nối chỉ định rõ ràng hoặc cấu hình DB_SSL
+const initialUseSsl = Boolean(
+  process.env.DB_SSL === 'true' ||
+  (connectionString && (connectionString.includes('sslmode=require') || connectionString.includes('ssl=true')))
+);
+
+export let pool = new Pool(createPoolConfig(initialUseSsl));
 
 let isDbConnected = false;
 
@@ -48,8 +57,38 @@ export const initDb = async () => {
     return false;
   }
 
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
+  } catch (err) {
+    // Nếu lỗi do SSL không được hỗ trợ -> thử lại ngay với chế độ không SSL
+    if (err.message && err.message.includes('The server does not support SSL connections')) {
+      console.warn('[PostgreSQL] ⚠️ Máy chủ không hỗ trợ SSL, tự động chuyển sang chế độ không SSL...');
+      await pool.end().catch(() => {});
+      pool = new Pool(createPoolConfig(false));
+      pool.on('error', (e) => {
+        console.error('[PostgreSQL] Lỗi kết nối Pool:', e.message);
+        isDbConnected = false;
+      });
+      client = await pool.connect();
+    } else if (err.message && (err.message.includes('no pg_hba.conf entry') || err.message.includes('SSL off'))) {
+      // Nếu server yêu cầu SSL nhưng pool chưa bật SSL
+      console.warn('[PostgreSQL] ⚠️ Máy chủ yêu cầu SSL, tự động chuyển sang chế độ SSL...');
+      await pool.end().catch(() => {});
+      pool = new Pool(createPoolConfig(true));
+      pool.on('error', (e) => {
+        console.error('[PostgreSQL] Lỗi kết nối Pool:', e.message);
+        isDbConnected = false;
+      });
+      client = await pool.connect();
+    } else {
+      console.error('[PostgreSQL] ❌ Lỗi kết nối ban đầu:', err.message);
+      isDbConnected = false;
+      return false;
+    }
+  }
+
+  try {
     isDbConnected = true;
     console.log('[PostgreSQL] ✅ Đã kết nối thành công tới máy chủ PostgreSQL!');
 

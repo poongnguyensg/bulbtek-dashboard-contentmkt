@@ -42,7 +42,7 @@ const STATUS_OPTIONS: ProductStatus[] = [
 ];
 
 export const Tab1Products: React.FC = () => {
-  const { products, selectedProduct, setSelectedProduct, saveProduct, deleteProduct, setActiveTab, setBriefPrefillItem, theme } = useApp();
+  const { products, selectedProduct, setSelectedProduct, saveProduct, bulkAddProducts, deleteProduct, setActiveTab, setBriefPrefillItem, theme } = useApp();
   const isLight = theme === 'light';
   
   const [selectedLineFilter, setSelectedLineFilter] = useState<string>('ALL');
@@ -51,6 +51,46 @@ export const Tab1Products: React.FC = () => {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [showBulkImportModal, setShowBulkImportModal] = useState<boolean>(false);
   const [bulkImportNotification, setBulkImportNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  // Backup & Restore Ref & Handlers
+  const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleExportProductsJson = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(products, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `Bulbtek_Products_Backup_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    setSaveMessage('💾 Đã xuất file sao lưu toàn bộ danh sách sản phẩm thành công!');
+    setTimeout(() => setSaveMessage(null), 3000);
+  };
+
+  const handleImportProductsJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target?.result as string);
+        if (Array.isArray(imported) && imported.length > 0) {
+          const res = bulkAddProducts(imported, true);
+          setBulkImportNotification({
+            message: `🎉 Đã khôi phục thành công ${res.added + res.updated} sản phẩm từ file sao lưu!`,
+            type: 'success'
+          });
+          setTimeout(() => setBulkImportNotification(null), 6000);
+        } else {
+          alert('Tệp JSON không chứa danh sách sản phẩm hợp lệ!');
+        }
+      } catch (err) {
+        alert('Lỗi đọc tệp JSON sao lưu. Vui lòng kiểm tra lại cấu trúc file!');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   // Form State
   const [formData, setFormData] = useState<Partial<Product>>(
@@ -116,7 +156,40 @@ export const Tab1Products: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Hàm tự động nén ảnh xuống dưới 50KB để không bao giờ bị tràn dung lượng LocalStorage (5MB)
+  const compressImageFile = (file: File, maxWidth = 600, quality = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(e.target?.result as string);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedBase64);
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -125,19 +198,15 @@ export const Tab1Products: React.FC = () => {
       return;
     }
 
-    if (file.size > 4 * 1024 * 1024) {
-      alert('Kích thước ảnh vượt quá 4MB. Vui lòng chọn ảnh nhẹ hơn để đảm bảo tốc độ dashboard!');
-      return;
+    try {
+      // Tự động thu nhỏ và nén ảnh chất lượng cao để đảm bảo dung lượng siêu nhẹ (~30-50KB)
+      const compressedDataUrl = await compressImageFile(file, 600, 0.7);
+      handleInputChange('imageUrl', compressedDataUrl);
+      setSaveMessage('📸 Đã nén và tải ảnh sản phẩm thành công (tối ưu bộ nhớ)!');
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (err) {
+      alert('Không thể xử lý tệp ảnh này. Vui lòng thử lại với một ảnh khác!');
     }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        handleInputChange('imageUrl', result);
-      }
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
   };
 
@@ -358,6 +427,41 @@ export const Tab1Products: React.FC = () => {
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
               <span>📥 Thêm SP hàng loạt</span>
+            </button>
+
+            {/* Input file ẩn phục hồi JSON */}
+            <input
+              type="file"
+              ref={jsonFileInputRef}
+              onChange={handleImportProductsJson}
+              accept=".json"
+              className="hidden"
+            />
+
+            <button
+              onClick={handleExportProductsJson}
+              className={`flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                isLight 
+                  ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800 shadow-sm' 
+                  : 'bg-amber-950/30 hover:bg-amber-900/40 border-amber-700/50 text-amber-400'
+              }`}
+              title="Sao lưu toàn bộ danh sách sản phẩm thành file .JSON tải về máy tính để bảo toàn dữ liệu vĩnh viễn"
+            >
+              <Download className="w-4 h-4 text-amber-500" />
+              <span>💾 Sao lưu (.JSON)</span>
+            </button>
+
+            <button
+              onClick={() => jsonFileInputRef.current?.click()}
+              className={`flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                isLight 
+                  ? 'bg-purple-50 hover:bg-purple-100 border-purple-300 text-purple-800 shadow-sm' 
+                  : 'bg-purple-950/30 hover:bg-purple-900/40 border-purple-700/50 text-purple-400'
+              }`}
+              title="Khôi phục lại danh sách sản phẩm từ file .JSON sao lưu trên máy tính"
+            >
+              <Upload className="w-4 h-4 text-purple-500" />
+              <span>📂 Phục hồi (.JSON)</span>
             </button>
 
             <button

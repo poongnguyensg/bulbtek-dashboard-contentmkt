@@ -194,29 +194,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Planning prefill (Mục 6: tạo nhanh bài từ ngày lễ)
   const [planningPrefillItem, setPlanningPrefillItem] = useState<ContentItem | null>(null);
 
-  // Save to localStorage
+  // Save to localStorage safely (tránh QuotaExceededError khi lưu dữ liệu hoặc ảnh)
   useEffect(() => {
-    localStorage.setItem('btk_products', JSON.stringify(products));
+    try {
+      localStorage.setItem('btk_products', JSON.stringify(products));
+    } catch (e) {
+      console.error('Không thể lưu btk_products vào localStorage (tràn bộ nhớ hoặc lỗi JSON):', e);
+    }
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem('btk_categories', JSON.stringify(categories));
+    try {
+      localStorage.setItem('btk_categories', JSON.stringify(categories));
+    } catch (e) {
+      console.error('Không thể lưu btk_categories:', e);
+    }
   }, [categories]);
 
   useEffect(() => {
-    localStorage.setItem('btk_team', JSON.stringify(users));
+    try {
+      localStorage.setItem('btk_team', JSON.stringify(users));
+    } catch (e) {
+      console.error('Không thể lưu btk_team:', e);
+    }
   }, [users]);
 
   useEffect(() => {
-    localStorage.setItem('btk_contents', JSON.stringify(contents));
+    try {
+      localStorage.setItem('btk_contents', JSON.stringify(contents));
+    } catch (e) {
+      console.error('Không thể lưu btk_contents:', e);
+    }
   }, [contents]);
 
   useEffect(() => {
-    localStorage.setItem('btk_email_logs', JSON.stringify(emailLogs));
+    try {
+      localStorage.setItem('btk_email_logs', JSON.stringify(emailLogs));
+    } catch (e) {
+      console.error('Không thể lưu btk_email_logs:', e);
+    }
   }, [emailLogs]);
 
   useEffect(() => {
-    localStorage.setItem('btk_settings', JSON.stringify(settings));
+    try {
+      localStorage.setItem('btk_settings', JSON.stringify(settings));
+    } catch (e) {
+      console.error('Không thể lưu btk_settings:', e);
+    }
   }, [settings]);
 
   // Content Memory (Anti-Duplication Engine)

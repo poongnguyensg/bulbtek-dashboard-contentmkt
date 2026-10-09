@@ -212,6 +212,13 @@ router.post('/bulk', async (req, res) => {
       }
     }
 
+    res.json({ success: true, added, updated, total: products.length });
+  } catch (err) {
+    console.error('Lỗi POST /api/products/bulk:', err.message);
+    res.status(500).json({ error: 'Lỗi khi nhập sản phẩm hàng loạt vào cơ sở dữ liệu.' });
+  }
+});
+
 // POST /api/products/scrape-url - Quét nội dung và metadata từ URL sản phẩm
 router.post('/scrape-url', async (req, res) => {
   const { url } = req.body;

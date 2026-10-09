@@ -82,6 +82,10 @@ router.patch('/:id/role', async (req, res) => {
     res.json(mapTeamFromDb(result.rows[0]));
   } catch (err) {
     console.error(`Lỗi PATCH /api/team/${id}/role:`, err.message);
+    res.status(500).json({ error: 'Lỗi cập nhật vai trò nhân sự.' });
+  }
+});
+
 // PUT /api/team/:id - Cập nhật toàn diện thông tin thành viên (Admin)
 router.put('/:id', async (req, res) => {
   const { id } = req.params;

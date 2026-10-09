@@ -82,8 +82,45 @@ router.patch('/:id/role', async (req, res) => {
     res.json(mapTeamFromDb(result.rows[0]));
   } catch (err) {
     console.error(`Lỗi PATCH /api/team/${id}/role:`, err.message);
-    res.status(500).json({ error: 'Lỗi cập nhật vai trò nhân sự.' });
+// PUT /api/team/:id - Cập nhật toàn diện thông tin thành viên (Admin)
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const m = req.body;
+  if (!m) {
+    return res.status(400).json({ error: 'Dữ liệu thành viên không hợp lệ.' });
+  }
+
+  try {
+    const sql = `
+      UPDATE team_members
+      SET name = COALESCE($1, name),
+          email = COALESCE($2, email),
+          role = COALESCE($3, role),
+          role_title = COALESCE($4, role_title),
+          status = COALESCE($5, status),
+          avatar = COALESCE($6, avatar)
+      WHERE id = $7
+      RETURNING *;
+    `;
+    const result = await query(sql, [
+      m.name,
+      m.email,
+      m.role,
+      m.roleTitle,
+      m.status,
+      m.avatar,
+      id
+    ]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy thành viên để cập nhật.' });
+    }
+    res.json(mapTeamFromDb(result.rows[0]));
+  } catch (err) {
+    console.error(`Lỗi PUT /api/team/${id}:`, err.message);
+    res.status(500).json({ error: 'Lỗi cập nhật thông tin thành viên trên cơ sở dữ liệu.' });
   }
 });
 
 export default router;
+

@@ -73,6 +73,23 @@ export async function apiBulkAddProducts(products: Product[], overwriteExisting 
   });
 }
 
+export interface ScrapedProductData {
+  success: boolean;
+  url: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  text: string;
+  error?: string;
+}
+
+export async function apiScrapeProductUrl(url: string): Promise<ScrapedProductData> {
+  return request<ScrapedProductData>('/products/scrape-url', {
+    method: 'POST',
+    body: JSON.stringify({ url })
+  });
+}
+
 // 3. CATEGORIES API
 export async function apiGetCategories(): Promise<Category[]> {
   return request<Category[]>('/categories');
@@ -118,6 +135,13 @@ export async function apiGetTeam(): Promise<TeamMember[]> {
 export async function apiSaveTeamMember(member: Partial<TeamMember>): Promise<TeamMember> {
   return request<TeamMember>('/team', {
     method: 'POST',
+    body: JSON.stringify(member)
+  });
+}
+
+export async function apiUpdateTeamMember(member: TeamMember): Promise<TeamMember> {
+  return request<TeamMember>(`/team/${member.id}`, {
+    method: 'PUT',
     body: JSON.stringify(member)
   });
 }

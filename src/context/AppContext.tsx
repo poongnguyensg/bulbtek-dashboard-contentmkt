@@ -24,7 +24,7 @@ import {
   apiGetProducts, apiSaveProduct, apiDeleteProduct, apiBulkAddProducts,
   apiGetCategories, apiSaveCategory,
   apiGetContents, apiSaveContent, apiDeleteContent, apiBulkAddContents,
-  apiGetTeam, apiSaveTeamMember, apiUpdateUserRole,
+  apiGetTeam, apiSaveTeamMember, apiUpdateTeamMember, apiUpdateUserRole,
   apiGetSettings, apiSaveSettings,
   apiGetMemory, apiAddMemory, apiClearMemory
 } from '../services/api';
@@ -42,6 +42,7 @@ interface AppContextType {
   users: TeamMember[];
   addUser: (member: Omit<TeamMember, 'id' | 'addedDate'>) => void;
   updateUserRole: (id: string, role: UserRole) => void;
+  updateTeamMember: (member: TeamMember) => void;
 
   // Products (Tab 1)
   products: Product[];
@@ -483,6 +484,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const updateTeamMember = (member: TeamMember) => {
+    setUsers(prev => prev.map(u => u.id === member.id ? member : u));
+    if (currentUser.id === member.id) {
+      setCurrentUser(member);
+    }
+
+    // Cập nhật toàn diện thành viên trên PostgreSQL
+    apiUpdateTeamMember(member).catch(err => {
+      console.warn('Lỗi cập nhật thành viên trên PostgreSQL:', err);
+    });
+  };
+
   // Workflow logic
   const submitContentForApproval = (contentId: string) => {
     const item = contents.find(c => c.id === contentId);
@@ -897,6 +910,7 @@ Slogan: An Toàn Hành Trình - Trợ Thủ Đắc Lực Cho Bác Tài Việt`;
         users,
         addUser,
         updateUserRole,
+        updateTeamMember,
         products,
         selectedProduct,
         setSelectedProduct,

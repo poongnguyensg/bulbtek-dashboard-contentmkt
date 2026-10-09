@@ -62,6 +62,7 @@ export const TabBrandPlanning: React.FC = () => {
     deleteContentItem, 
     settings,
     users,
+    currentUser,
     setActiveTab,
     setBriefPrefillItem,
     theme,
@@ -713,6 +714,227 @@ export const TabBrandPlanning: React.FC = () => {
     handleOpenAiStudio(newItem);
   };
 
+  // AI Tự động phân bổ lịch Content Branding thông minh:
+  // - Ưu tiên các ngày còn trống trong tháng so với lịch Content Product Planning
+  // - Nếu số bài Branding nhiều hơn số ngày trống, phân bổ cùng ngày với bài Sản phẩm
+  const handleSmartAutoAllocateSchedule = () => {
+    const totalTarget = brandingTarget + mascotTarget + eventTarget;
+    if (totalTarget <= 0) {
+      alert('Vui lòng thiết lập mục tiêu số lượng bài lớn hơn 0 trước khi phân bổ!');
+      return;
+    }
+
+    // 1. Xác định số ngày trong tháng được chọn
+    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+    const allDaysInMonth: string[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      allDaysInMonth.push(`${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+    }
+
+    // 2. Lấy danh sách các bài viết Content Product Planning trong tháng
+    const isBrandItem = (c: ContentItem) => {
+      const isBrandLine = c.productLine === 'Branding Sản Phẩm' || c.productLine === 'Linh Vật Robot BU';
+      const isBrandCat = c.categoryId === 'cat-branding' || c.categoryId === 'cat-interaction';
+      const isBrandName = c.productName.toLowerCase().includes('branding') || 
+                          c.productName.toLowerCase().includes('robot bu') ||
+                          c.productName.toLowerCase().includes('sự kiện') ||
+                          c.title.toLowerCase().includes('sự kiện') ||
+                          c.title.toLowerCase().includes('lễ tết');
+      return isBrandLine || isBrandCat || isBrandName;
+    };
+
+    const productContentsInMonth = contents.filter(c => {
+      const parts = c.date.split('-');
+      if (parts.length >= 2) {
+        const m = parseInt(parts[1], 10);
+        const y = parseInt(parts[0], 10);
+        if (m !== selectedMonth || y !== selectedYear) return false;
+      }
+      return !isBrandItem(c);
+    });
+
+    const productOccupiedDates = new Set(productContentsInMonth.map(c => c.date));
+
+    // 3. Phân chia ngày trống và ngày đã có bài sản phẩm
+    const emptyDates = allDaysInMonth.filter(d => !productOccupiedDates.has(d));
+    const busyDates = allDaysInMonth.filter(d => productOccupiedDates.has(d));
+
+    // 4. Chuẩn bị danh sách bài cần tạo theo 3 Tuyến
+    interface PostTask {
+      type: 'EVENT' | 'BRANDING' | 'ROBOT_BU';
+      title: string;
+      headline: string;
+      angle: string;
+      productId: string;
+      productName: string;
+      productLine: string;
+      categoryId: string;
+      preferredDate?: string;
+    }
+
+    const tasksToAllocate: PostTask[] = [];
+
+    // Tuyến 3: Sự Kiện Lễ Tết (ưu tiên gán theo ngày lễ cụ thể nếu có)
+    const validEventIdeas = eventIdeas.filter(i => i.trim());
+    for (let i = 0; i < eventTarget; i++) {
+      const holiday = holidaysInMonth[i % Math.max(1, holidaysInMonth.length)];
+      const holidayDayStr = holiday?.day ? String(holiday.day).padStart(2, '0') : '';
+      const holidayDateStr = holidayDayStr ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${holidayDayStr}` : undefined;
+      const holName = holiday?.holiday?.name || `Chiến dịch tháng ${selectedMonth}`;
+      const ideaText = validEventIdeas[i % Math.max(1, validEventIdeas.length)] || holiday?.holiday?.suggestedAngle || `Chiến dịch truyền thông an toàn mùa Lễ Tết tháng ${selectedMonth}`;
+      
+      tasksToAllocate.push({
+        type: 'EVENT',
+        title: `🎉 [Sự Kiện & Lễ Tết] ${holName}`,
+        headline: `BULBTEK VIỆT NAM — Lan Tỏa Ánh Sáng Mùa Lễ Tết Tháng ${selectedMonth}`,
+        angle: ideaText,
+        productId: 'prod-brand-event',
+        productName: 'Bulbtek — Sự Kiện & Lễ Tết',
+        productLine: 'Branding Sản Phẩm',
+        categoryId: 'cat-branding',
+        preferredDate: holidayDateStr
+      });
+    }
+
+    // Tuyến 1: Branding
+    const validBrandIdeas = brandingIdeas.filter(i => i.trim());
+    for (let i = 0; i < brandingTarget; i++) {
+      const ideaText = validBrandIdeas[i % Math.max(1, validBrandIdeas.length)] || brandAiSuggestions[i % Math.max(1, brandAiSuggestions.length)]?.content || '3 Giá trị cốt lõi: Bền Bỉ – Bền Vững – Bảo Vệ';
+      tasksToAllocate.push({
+        type: 'BRANDING',
+        title: `🛡️ [Branding] Cam kết An Toàn Hành Trình #${i + 1}`,
+        headline: 'BULBTEK VIỆT NAM — Cam Kết Bền Bỉ, Bền Vững & Bảo Vệ',
+        angle: ideaText,
+        productId: 'prod-branding',
+        productName: 'Bulbtek Việt Nam — Branding',
+        productLine: 'Branding Sản Phẩm',
+        categoryId: 'cat-branding'
+      });
+    }
+
+    // Tuyến 2: Robot BU
+    const validMascotIdeas = mascotIdeas.filter(i => i.trim());
+    for (let i = 0; i < mascotTarget; i++) {
+      const ideaText = validMascotIdeas[i % Math.max(1, validMascotIdeas.length)] || mascotAiSuggestions[i % Math.max(1, mascotAiSuggestions.length)]?.content || 'Nhật ký cabin cùng Robot BU';
+      tasksToAllocate.push({
+        type: 'ROBOT_BU',
+        title: `🤖 [Robot BU] Kể chuyện cabin đèo đêm #${i + 1}`,
+        headline: 'Robot BU Đồng Hành — Thắp Sáng Mọi Cung Đường Đêm',
+        angle: ideaText,
+        productId: 'prod-robot-bu',
+        productName: 'Linh Vật Robot BU',
+        productLine: 'Linh Vật Robot BU',
+        categoryId: 'cat-interaction'
+      });
+    }
+
+    // 5. Thuật toán phân bổ ngày thông minh
+    const availableEmpty = [...emptyDates];
+    const availableBusy = [...busyDates];
+    let emptyAllocatedCount = 0;
+    let coScheduleAllocatedCount = 0;
+
+    const remainingTasks = [...tasksToAllocate];
+    const finalAllocatedTasks: { task: PostTask; date: string }[] = [];
+
+    // Ưu tiên 1: Tasks có ngày lễ cụ thể (EVENT)
+    for (let i = remainingTasks.length - 1; i >= 0; i--) {
+      const t = remainingTasks[i];
+      if (t.preferredDate) {
+        const emptyIdx = availableEmpty.indexOf(t.preferredDate);
+        if (emptyIdx !== -1) {
+          finalAllocatedTasks.push({ task: t, date: t.preferredDate });
+          availableEmpty.splice(emptyIdx, 1);
+          emptyAllocatedCount++;
+          remainingTasks.splice(i, 1);
+        } else {
+          finalAllocatedTasks.push({ task: t, date: t.preferredDate });
+          coScheduleAllocatedCount++;
+          remainingTasks.splice(i, 1);
+        }
+      }
+    }
+
+    // Ưu tiên 2: Phân bổ các task còn lại vào các ngày trống (chia đều khoảng cách)
+    if (availableEmpty.length > 0 && remainingTasks.length > 0) {
+      const numToEmpty = Math.min(remainingTasks.length, availableEmpty.length);
+      const step = availableEmpty.length / numToEmpty;
+      const pickedEmptyIndices: number[] = [];
+      for (let i = 0; i < numToEmpty; i++) {
+        const idx = Math.min(availableEmpty.length - 1, Math.floor(i * step));
+        if (!pickedEmptyIndices.includes(idx)) {
+          pickedEmptyIndices.push(idx);
+        }
+      }
+      for (let i = 0; i < availableEmpty.length && pickedEmptyIndices.length < numToEmpty; i++) {
+        if (!pickedEmptyIndices.includes(i)) pickedEmptyIndices.push(i);
+      }
+      pickedEmptyIndices.sort((a, b) => a - b);
+
+      const tasksForEmpty = remainingTasks.splice(0, pickedEmptyIndices.length);
+      tasksForEmpty.forEach((task, idx) => {
+        const date = availableEmpty[pickedEmptyIndices[idx]];
+        finalAllocatedTasks.push({ task, date });
+        emptyAllocatedCount++;
+      });
+    }
+
+    // Ưu tiên 3: Nếu số lượng bài Branding nhiều hơn số ngày trống -> phân bổ cùng ngày với bài sản phẩm (busyDates)
+    if (remainingTasks.length > 0) {
+      const datesToUse = availableBusy.length > 0 ? availableBusy : allDaysInMonth;
+      remainingTasks.forEach((task, idx) => {
+        const date = datesToUse[idx % datesToUse.length];
+        finalAllocatedTasks.push({ task, date });
+        coScheduleAllocatedCount++;
+      });
+    }
+
+    // 6. Sắp xếp theo ngày tăng dần
+    finalAllocatedTasks.sort((a, b) => a.date.localeCompare(b.date));
+
+    // 7. Tạo ContentItem đầy đủ
+    const activeCreators = users.filter(u => u.status === 'Active');
+    const newBrandItems: ContentItem[] = finalAllocatedTasks.map((item, idx) => {
+      const isFb = idx % 100 < fbChannelRatio;
+      const channel: Channel = isFb ? 'Facebook' : 'TikTok';
+      const creator = activeCreators.length > 0 ? activeCreators[idx % activeCreators.length] : users[0];
+      const dayNum = parseInt(item.date.split('-')[2], 10);
+
+      return {
+        id: `content-brand-${Date.now()}-${idx}`,
+        title: `${item.task.title} - Ngày ${dayNum}/${selectedMonth}`,
+        creativeHeadline: item.task.headline,
+        channel,
+        date: item.date,
+        productId: item.task.productId,
+        productName: item.task.productName,
+        productLine: item.task.productLine as any,
+        categoryId: item.task.categoryId,
+        status: 'Pending',
+        assigneeId: creator?.id || 'user-linh',
+        assigneeName: creator?.name || 'Linh',
+        createdBy: currentUser?.name || 'Admin',
+        createdAt: new Date().toISOString(),
+        highlightSpecs: [],
+        angleUsed: item.task.angle
+      };
+    });
+
+    // 8. Lưu tất cả bài viết vào context và PostgreSQL
+    newBrandItems.forEach(item => {
+      saveContentItem(item);
+    });
+
+    setCopiedActionToast(
+      `🎉 AI đã tự động phân bổ thành công ${newBrandItems.length} bài Content Branding: ` +
+      `${emptyAllocatedCount} bài vào ngày trống và ${coScheduleAllocatedCount} bài cùng ngày với Content Product Planning!`
+    );
+    setTimeout(() => setCopiedActionToast(null), 6000);
+
+    // Chuyển sang Sub-tab Lịch Phân Bổ
+    setActiveSubTab('SCHEDULE');
+  };
+
   // Stats calculation
   const totalBrandScheduled = brandContentsInMonth.length;
   const readyBrandCount = brandContentsInMonth.filter(c => c.facebookCaption || c.tiktokCaption).length;
@@ -951,6 +1173,23 @@ export const TabBrandPlanning: React.FC = () => {
                   <span>~{Math.max(0, targetTotal - Math.round(targetTotal * fbChannelRatio / 100))} bài TikTok</span>
                 </div>
               </div>
+            </div>
+
+            {/* Quick Action Button: AI Tự Động Phân Bổ Lịch Content Branding */}
+            <div className="pt-3 border-t border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center space-x-1.5 font-medium">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>AI sẽ ưu tiên phân bổ bài vào các ngày còn trống trong tháng {selectedMonth} (tránh trùng ngày với bài Content Product Planning).</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSmartAutoAllocateSchedule}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 via-red-600 to-amber-600 hover:from-amber-500 hover:to-red-500 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition flex items-center space-x-2 shrink-0 transform hover:scale-[1.02]"
+              >
+                <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" />
+                <span>⚡ AI Phân Bổ Lịch Tự Động ({targetTotal} Bài)</span>
+              </button>
             </div>
           </div>
 
@@ -1647,16 +1886,31 @@ export const TabBrandPlanning: React.FC = () => {
             </div>
           )}
 
-          {/* Chuyển sang Bước 3 */}
-          <div className="flex justify-end pt-2">
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('SCHEDULE')}
-              className="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md transition"
-            >
-              <span>Xem Lịch Phân Bổ & AI Studio Thương Hiệu ➔</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+          {/* Chuyển sang Bước 3 & Nút Phân bổ AI */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+            <div className={`text-xs ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
+              Sau khi chọn xong Mục tiêu & Tuyến ý tưởng, bấm nút phân bổ để AI tự động sắp lịch thông minh (ưu tiên ngày trống).
+            </div>
+
+            <div className="flex items-center space-x-3 shrink-0">
+              <button
+                type="button"
+                onClick={handleSmartAutoAllocateSchedule}
+                className="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 via-red-600 to-amber-600 hover:from-amber-500 hover:to-red-500 text-white text-xs font-bold shadow-lg shadow-amber-600/20 transition transform hover:scale-[1.02]"
+              >
+                <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" />
+                <span>⚡ AI Phân Bổ Lịch Tự Động (Tránh Ngày Có Bài SP)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('SCHEDULE')}
+                className="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md transition"
+              >
+                <span>Xem Lịch Phân Bổ & AI Studio Thương Hiệu ➔</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
         </div>
@@ -2035,6 +2289,16 @@ export const TabBrandPlanning: React.FC = () => {
                 >
                   <Download className="w-3.5 h-3.5 text-blue-500" />
                   <span>.CSV</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSmartAutoAllocateSchedule}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 via-red-600 to-amber-600 hover:from-amber-500 hover:to-red-500 text-white text-xs font-bold shadow-md transition flex items-center space-x-1.5"
+                  title="Tự động phân bổ lịch Content Branding vào các ngày trống so với lịch bài sản phẩm"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" />
+                  <span>⚡ AI Phân Bổ Lịch Tự Động</span>
                 </button>
 
                 <button

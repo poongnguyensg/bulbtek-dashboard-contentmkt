@@ -212,11 +212,89 @@ router.post('/bulk', async (req, res) => {
       }
     }
 
-    res.json({ success: true, added, updated, total: products.length });
+// POST /api/products/scrape-url - Quét nội dung và metadata từ URL sản phẩm
+router.post('/scrape-url', async (req, res) => {
+  const { url } = req.body;
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return res.status(400).json({ error: 'URL sản phẩm không được để trống.' });
+  }
+
+  try {
+    const targetUrl = url.trim();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    const response = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'vi,en-US;q=0.9,en;q=0.8'
+      }
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: `Trang web trả về lỗi HTTP ${response.status}`,
+        status: response.status
+      });
+    }
+
+    const html = await response.text();
+
+    // Trích xuất metadata tiêu đề và ảnh
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
+                         html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
+    const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+                        html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i) ||
+                        html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+    const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
+                         html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+
+    // Làm sạch HTML thành text chứa thông số
+    const cleanText = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+      .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, ' ')
+      .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, ' ')
+      .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ')
+      .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
+      .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const title = (ogTitleMatch ? ogTitleMatch[1] : (titleMatch ? titleMatch[1] : '')).trim();
+    const description = (ogDescMatch ? ogDescMatch[1] : '').trim();
+    let imageUrl = (ogImageMatch ? ogImageMatch[1] : '').trim();
+    if (imageUrl && !imageUrl.startsWith('http')) {
+      try {
+        imageUrl = new URL(imageUrl, targetUrl).href;
+      } catch (e) {}
+    }
+
+    res.json({
+      success: true,
+      url: targetUrl,
+      title,
+      description,
+      imageUrl,
+      text: cleanText.slice(0, 15000)
+    });
   } catch (err) {
-    console.error('Lỗi POST /api/products/bulk:', err.message);
-    res.status(500).json({ error: 'Lỗi khi nhập sản phẩm hàng loạt vào cơ sở dữ liệu.' });
+    console.error('Lỗi khi fetch URL sản phẩm:', err.message);
+    res.status(500).json({
+      success: false,
+      error: `Không thể kết nối đến URL (${err.message}). Bạn có thể chuyển sang chế độ dán nội dung/thông số trực tiếp.`
+    });
   }
 });
 
 export default router;
+

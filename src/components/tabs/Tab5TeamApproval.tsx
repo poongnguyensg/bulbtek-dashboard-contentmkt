@@ -19,9 +19,11 @@ import {
   Copy,
   ExternalLink,
   Share2,
-  CheckCheck
+  CheckCheck,
+  Edit3
 } from 'lucide-react';
 import { checkBrandCompliance, DEFAULT_COMPLIANCE_RULES } from '../../data/complianceKeywords';
+import { EditTeamMemberModal } from '../modals/EditTeamMemberModal';
 
 interface InviteDialogData {
   name: string;
@@ -40,6 +42,7 @@ export const Tab5TeamApproval: React.FC = () => {
     currentUser, 
     addUser, 
     updateUserRole, 
+    updateTeamMember,
     contents, 
     approveContent, 
     rejectContent, 
@@ -52,6 +55,10 @@ export const Tab5TeamApproval: React.FC = () => {
   } = useApp();
 
   const isLight = theme === 'light';
+
+  // Modal edit team member (Admin)
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
 
   // Modal invite member
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
@@ -234,7 +241,7 @@ export const Tab5TeamApproval: React.FC = () => {
                 <th className="py-3 px-4">Trạng thái</th>
                 <th className="py-3 px-4">Ngày tham gia</th>
                 <th className="py-3 px-4 text-center">Thư mời</th>
-                {isAdmin && <th className="py-3 px-4 text-right">Phân quyền</th>}
+                {isAdmin && <th className="py-3 px-4 text-right">Chỉnh sửa & Phân quyền</th>}
               </tr>
             </thead>
             <tbody className={`divide-y ${isLight ? 'divide-slate-200' : 'divide-bulbtek-dark-border/60'}`}>
@@ -250,7 +257,22 @@ export const Tab5TeamApproval: React.FC = () => {
                           {u.avatar}
                         </div>
                         <div>
-                          <span className={`font-bold block ${isLight ? 'text-slate-900' : 'text-white'}`}>{u.name}</span>
+                          <div className="flex items-center space-x-1.5">
+                            <span className={`font-bold block ${isLight ? 'text-slate-900' : 'text-white'}`}>{u.name}</span>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingMember(u);
+                                  setShowEditModal(true);
+                                }}
+                                className="p-1 rounded text-slate-400 hover:text-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition"
+                                title="Chỉnh sửa thông tin thành viên này"
+                              >
+                                <Edit3 className="w-3 h-3 text-blue-500" />
+                              </button>
+                            )}
+                          </div>
                           {isCurrent && (
                             <span className={`text-[10px] font-medium ${isLight ? 'text-bulbtek-red' : 'text-red-400'}`}>
                               (Bạn đang dùng)
@@ -305,17 +327,37 @@ export const Tab5TeamApproval: React.FC = () => {
 
                     {isAdmin && (
                       <td className="py-3 px-4 text-right">
-                        <select
-                          value={u.role}
-                          onChange={(e) => updateUserRole(u.id, e.target.value as UserRole)}
-                          className={`border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-bulbtek-red ${
-                            isLight ? 'bg-white border-slate-200 text-slate-800 shadow-xs' : 'bg-bulbtek-dark-deep border-bulbtek-dark-border text-white'
-                          }`}
-                        >
-                          <option value="ADMIN">ADMIN</option>
-                          <option value="APPROVER">APPROVER</option>
-                          <option value="CREATOR">CREATOR</option>
-                        </select>
+                        <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingMember(u);
+                              setShowEditModal(true);
+                            }}
+                            className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition ${
+                              isLight 
+                                ? 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700 shadow-xs' 
+                                : 'bg-blue-950/60 hover:bg-blue-900/60 border-blue-800 text-blue-300'
+                            }`}
+                            title="Chỉnh sửa Email, Tên thành viên, Vai trò và Chức danh (Admin)"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-blue-500" />
+                            <span>Sửa</span>
+                          </button>
+
+                          <select
+                            value={u.role}
+                            onChange={(e) => updateUserRole(u.id, e.target.value as UserRole)}
+                            className={`border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-bulbtek-red ${
+                              isLight ? 'bg-white border-slate-200 text-slate-800 shadow-xs' : 'bg-bulbtek-dark-deep border-bulbtek-dark-border text-white'
+                            }`}
+                            title="Đổi nhanh vai trò"
+                          >
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="APPROVER">APPROVER</option>
+                            <option value="CREATOR">CREATOR</option>
+                          </select>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -1014,6 +1056,19 @@ export const Tab5TeamApproval: React.FC = () => {
         </div>
       )}
 
+      {/* Edit Team Member Modal */}
+      <EditTeamMemberModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingMember(null);
+        }}
+        member={editingMember}
+        onSave={(updated) => updateTeamMember(updated)}
+        theme={theme}
+      />
+
     </div>
   );
 };
+

@@ -24,6 +24,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { BulkProductImportModal } from '../modals/BulkProductImportModal';
+import { AiProductImportModal } from '../modals/AiProductImportModal';
 import { downloadTemplateExcel } from '../../services/productImportService';
 import { uploadImageFile } from '../../services/api';
 
@@ -51,6 +52,7 @@ export const Tab1Products: React.FC = () => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [showBulkImportModal, setShowBulkImportModal] = useState<boolean>(false);
+  const [showAiImportModal, setShowAiImportModal] = useState<boolean>(false);
   const [bulkImportNotification, setBulkImportNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
   // Backup & Restore Ref & Handlers
@@ -188,6 +190,23 @@ export const Tab1Products: React.FC = () => {
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  };
+
+  const handleApplyAiProductToForm = (prod: Partial<Product>) => {
+    setFormData(prod);
+    setIsEditing(true);
+    setSaveMessage('✨ Đã điền thông số sản phẩm từ AI vào form! Bạn có thể kiểm tra và bấm "Lưu sản phẩm".');
+    setTimeout(() => setSaveMessage(null), 5000);
+  };
+
+  const handleSaveAiProductDirectly = (prod: Product) => {
+    saveProduct(prod);
+    handleSelectProduct(prod);
+    setBulkImportNotification({
+      message: `🎉 Đã thêm sản phẩm "${prod.name}" (${prod.sku}) từ AI vào kho thành công!`,
+      type: 'success'
+    });
+    setTimeout(() => setBulkImportNotification(null), 6000);
   };
 
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -472,6 +491,16 @@ export const Tab1Products: React.FC = () => {
             >
               <Upload className="w-4 h-4 text-purple-500" />
               <span>📂 Phục hồi (.JSON)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowAiImportModal(true)}
+              className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition-all transform hover:scale-[1.02]"
+              title="Thả link sản phẩm bất kỳ để AI tự động phân tích và trích xuất toàn bộ thông số kỹ thuật"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span>✨ Nhập sản phẩm bằng AI</span>
             </button>
 
             <button
@@ -1253,6 +1282,16 @@ export const Tab1Products: React.FC = () => {
           }, 8000);
         }}
       />
+
+      {/* AI Product Import Modal */}
+      <AiProductImportModal
+        isOpen={showAiImportModal}
+        onClose={() => setShowAiImportModal(false)}
+        onApplyToForm={handleApplyAiProductToForm}
+        onSaveDirectly={handleSaveAiProductDirectly}
+        theme={theme}
+      />
     </div>
   );
 };
+

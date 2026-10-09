@@ -688,7 +688,35 @@ export const downloadTemplateExcel = () => {
   XLSX.utils.book_append_sheet(workbook, wsProducts, 'DanhSachSanPham');
   XLSX.utils.book_append_sheet(workbook, wsGuide, 'HuongDan_QuyChuan');
 
-  XLSX.writeFile(workbook, 'Bulbtek_Mau_Nhap_San_Pham.xlsx');
+  saveWorkbookInBrowser(workbook, 'Bulbtek_Mau_Nhap_San_Pham.xlsx');
+};
+
+/**
+ * Tải xuống file Excel (.xlsx) trong môi trường trình duyệt một cách an toàn
+ * Sử dụng Blob nhị phân và ObjectURL, không phụ thuộc vào Node.js fs.writeFileSync
+ */
+export const saveWorkbookInBrowser = (workbook: XLSX.WorkBook, fileName: string) => {
+  const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', fileName);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+const formatDateSafe = (dateVal: any): string => {
+  if (!dateVal) return '';
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+  } catch (e) {
+    return String(dateVal);
+  }
 };
 
 /**
@@ -789,12 +817,16 @@ export const downloadTemplateCsv = () => {
  * Người dùng có thể nhập trực tiếp vào Google Sheets hoặc mở trên Microsoft Excel
  */
 export const exportProductsToGoogleSheets = (products: Product[]) => {
+  if (!products || !Array.isArray(products) || products.length === 0) {
+    throw new Error('Danh sách sản phẩm trống, chưa có dữ liệu để xuất.');
+  }
+
   const exportData = products.map((p, idx) => ({
     'STT': idx + 1,
-    'Tên Sản Phẩm': p.name,
-    'Mã SKU': p.sku,
-    'Dòng Sản Phẩm': p.productLine,
-    'Trạng Thái': p.status,
+    'Tên Sản Phẩm': p.name || '',
+    'Mã SKU': p.sku || '',
+    'Dòng Sản Phẩm': p.productLine || 'Bi LED',
+    'Trạng Thái': p.status || 'Sản phẩm mới',
     'Giá Bán Lẻ': p.retailPrice || '',
     'Sản Phẩm Phù Hợp': p.suitableFor || 'Xe ô tô',
     'Đối Tượng Mục Tiêu': p.targetAudience || 'Cả hai',
@@ -815,8 +847,8 @@ export const exportProductsToGoogleSheets = (products: Product[]) => {
     'Ghi Chú Nội Bộ': p.internalNotes || '',
     'Link Ảnh': p.imageUrl || '',
     'Trạng Thái Hiển Thị': p.isHidden ? 'Đang ẩn' : 'Hiển thị',
-    'Ngày Tạo': p.createdAt ? new Date(p.createdAt).toLocaleDateString('vi-VN') : '',
-    'Cập Nhật Cuối': p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('vi-VN') : ''
+    'Ngày Tạo': formatDateSafe(p.createdAt),
+    'Cập Nhật Cuối': formatDateSafe(p.updatedAt)
   }));
 
   const ws = XLSX.utils.json_to_sheet(exportData);
@@ -846,14 +878,14 @@ export const exportProductsToGoogleSheets = (products: Product[]) => {
     { wch: 30 }, // Ghi Chú Nội Bộ
     { wch: 35 }, // Link Ảnh
     { wch: 18 }, // Trạng Thái Hiển Thị
-    { wch: 14 }, // Ngày Tạo
-    { wch: 14 }  // Cập Nhật Cuối
+    { wch: 16 }, // Ngày Tạo
+    { wch: 16 }  // Cập Nhật Cuối
   ];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'DuLieu_CauHinh_SanPham');
-  
+
   const today = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `Bulbtek_DuLieu_CauHinh_SanPham_${today}.xlsx`);
+  saveWorkbookInBrowser(wb, `Bulbtek_DuLieu_CauHinh_SanPham_${today}.xlsx`);
 };
 

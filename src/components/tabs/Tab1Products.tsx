@@ -479,14 +479,19 @@ export const Tab1Products: React.FC = () => {
           <button
             onClick={() => {
               try {
+                if (!products || products.length === 0) {
+                  alert('Chưa có sản phẩm nào trong hệ thống để xuất file!');
+                  return;
+                }
                 exportProductsToGoogleSheets(products);
                 setBulkImportNotification({
-                  message: `📊 Đã xuất thành công toàn bộ ${products.length} sản phẩm ra file tương thích Google Sheets! Bạn có thể tải lên Google Drive / Sheets để xem và quản lý trực tuyến.`,
+                  message: `📊 Đã xuất thành công toàn bộ ${products.length} sản phẩm ra file tương thích Google Sheets (.xlsx)! Bạn có thể tải lên Google Drive / Sheets để xem và quản lý trực tuyến.`,
                   type: 'success'
                 });
                 setTimeout(() => setBulkImportNotification(null), 6000);
-              } catch (err) {
-                alert('Có lỗi xảy ra khi xuất file dữ liệu Google Sheets. Vui lòng thử lại!');
+              } catch (err: any) {
+                console.error('Lỗi khi xuất dữ liệu Google Sheets:', err);
+                alert(`Có lỗi xảy ra khi xuất file dữ liệu: ${err?.message || err}`);
               }
             }}
             className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition hover:shadow-sm ${

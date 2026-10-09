@@ -1,5 +1,6 @@
 export type ProductLine = 
   | 'Bi LED'
+  | 'Bi LASER'
   | 'Bi Gầm'
   | 'Bóng LED'
   | 'Bi LED Mini'

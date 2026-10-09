@@ -326,6 +326,7 @@ export const AiProductImportModal: React.FC<AiProductImportModalProps> = ({
                         }`}
                       >
                         <option value="Bi LED">Bi LED</option>
+                        <option value="Bi LASER">Bi LASER</option>
                         <option value="Bi Gầm">Bi Gầm</option>
                         <option value="Bóng LED">Bóng LED</option>
                         <option value="Bi LED Mini">Bi LED Mini</option>

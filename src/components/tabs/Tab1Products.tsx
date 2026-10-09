@@ -25,11 +25,12 @@ import {
 } from 'lucide-react';
 import { BulkProductImportModal } from '../modals/BulkProductImportModal';
 import { AiProductImportModal } from '../modals/AiProductImportModal';
-import { downloadTemplateExcel } from '../../services/productImportService';
+import { downloadTemplateExcel, exportProductsToGoogleSheets } from '../../services/productImportService';
 import { uploadImageFile } from '../../services/api';
 
 const PRODUCT_LINES: ProductLine[] = [
   'Bi LED',
+  'Bi LASER',
   'Bi Gầm',
   'Bóng LED',
   'Bi LED Mini',
@@ -392,7 +393,7 @@ export const Tab1Products: React.FC = () => {
         isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#18181D] border-[#2A2A32] shadow-lg'
       }`}>
         <div className="absolute right-0 top-0 bottom-0 w-80 bg-gradient-to-l from-bulbtek-red/10 to-transparent pointer-events-none" />
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
           <div>
             <div className="flex items-center space-x-2">
               <span className={`p-2 rounded-xl border ${
@@ -404,114 +405,178 @@ export const Tab1Products: React.FC = () => {
                 Cấu hình sản phẩm (Product Configuration)
               </h1>
             </div>
-            <p className={`text-sm mt-1 max-w-3xl ${isLight ? 'text-slate-600' : 'text-gray-400'}`}>
+            <p className={`text-sm mt-1 max-w-2xl ${isLight ? 'text-slate-600' : 'text-gray-400'}`}>
               Quản lý và cấu hình toàn bộ danh mục sản phẩm đèn tăng sáng ô tô BULBTEK. Dữ liệu kỹ thuật chuẩn xác và duy nhất để AI trích xuất thông số, tuân thủ nguyên tắc không bịa đặt.
             </p>
           </div>
 
-          <div className="flex items-center space-x-2 shrink-0">
+          {/* Phần Thương hiệu Bulbtek nằm 1 góc bên phải */}
+          <div className="shrink-0 flex items-center">
             <button
               onClick={() => setActiveTab(2)}
-              className={`flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition ${
+              className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all group shadow-sm ${
                 isLight 
-                  ? 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700' 
-                  : 'bg-[#121215] hover:bg-[#202028] border-[#2F2F37] text-gray-300'
+                  ? 'bg-gradient-to-r from-red-50 to-white hover:bg-red-100/70 border-red-200 text-slate-800 hover:border-bulbtek-red/40' 
+                  : 'bg-gradient-to-r from-red-950/40 to-[#121215] hover:bg-red-900/30 border-red-900/40 text-gray-200 hover:border-bulbtek-red/50'
               }`}
-              title="Xem Triết Lý, Sứ Mệnh & Robot BU"
+              title="Xem Triết Lý, Sứ Mệnh & Robot BU (Tab 2)"
             >
-              <ShieldCheck className="w-4 h-4 text-bulbtek-red" />
-              <span>Thương Hiệu Bulbtek →</span>
-            </button>
-
-            <button
-              onClick={() => {
-                downloadTemplateExcel();
-                setBulkImportNotification({
-                  message: 'Đã tải xuống biểu mẫu Excel chuẩn Bulbtek (Bulbtek_Mau_Nhap_San_Pham.xlsx)! Bạn hãy điền thông tin theo các cột mẫu rồi bấm "Thêm SP hàng loạt" để đưa vào kho.',
-                  type: 'info'
-                });
-                setTimeout(() => {
-                  setBulkImportNotification(null);
-                }, 8000);
-              }}
-              className={`flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition ${
-                isLight 
-                  ? 'bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-800 shadow-sm' 
-                  : 'bg-blue-950/30 hover:bg-blue-900/40 border-blue-700/50 text-blue-400'
-              }`}
-              title="Tải biểu mẫu Excel chuẩn Bulbtek gồm 2 sheet: Danh sách SP mẫu và Hướng dẫn quy chuẩn các cột"
-            >
-              <Download className="w-4 h-4 text-blue-500" />
-              <span>📄 Tải biểu mẫu Excel</span>
-            </button>
-
-            <button
-              onClick={() => setShowBulkImportModal(true)}
-              className={`flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition ${
-                isLight 
-                  ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-800 shadow-sm' 
-                  : 'bg-emerald-950/30 hover:bg-emerald-900/40 border-emerald-700/50 text-emerald-400'
-              }`}
-              title="Nhập sản phẩm hàng loạt từ tệp Excel, CSV hoặc Google Drive / Sheets"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-              <span>📥 Thêm SP hàng loạt</span>
-            </button>
-
-            {/* Input file ẩn phục hồi JSON */}
-            <input
-              type="file"
-              ref={jsonFileInputRef}
-              onChange={handleImportProductsJson}
-              accept=".json"
-              className="hidden"
-            />
-
-            <button
-              onClick={handleExportProductsJson}
-              className={`flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold transition ${
-                isLight 
-                  ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800 shadow-sm' 
-                  : 'bg-amber-950/30 hover:bg-amber-900/40 border-amber-700/50 text-amber-400'
-              }`}
-              title="Sao lưu toàn bộ danh sách sản phẩm thành file .JSON tải về máy tính để bảo toàn dữ liệu vĩnh viễn"
-            >
-              <Download className="w-4 h-4 text-amber-500" />
-              <span>💾 Sao lưu (.JSON)</span>
-            </button>
-
-            <button
-              onClick={() => jsonFileInputRef.current?.click()}
-              className={`flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold transition ${
-                isLight 
-                  ? 'bg-purple-50 hover:bg-purple-100 border-purple-300 text-purple-800 shadow-sm' 
-                  : 'bg-purple-950/30 hover:bg-purple-900/40 border-purple-700/50 text-purple-400'
-              }`}
-              title="Khôi phục lại danh sách sản phẩm từ file .JSON sao lưu trên máy tính"
-            >
-              <Upload className="w-4 h-4 text-purple-500" />
-              <span>📂 Phục hồi (.JSON)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowAiImportModal(true)}
-              className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition-all transform hover:scale-[1.02]"
-              title="Thả link sản phẩm bất kỳ để AI tự động phân tích và trích xuất toàn bộ thông số kỹ thuật"
-            >
-              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-              <span>✨ Nhập sản phẩm bằng AI</span>
-            </button>
-
-            <button
-              onClick={handleAddNew}
-              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-bulbtek-red hover:bg-bulbtek-red-hover text-white font-semibold transition-all shadow-glow-red"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Thêm sản phẩm mới</span>
+              <ShieldCheck className="w-4 h-4 text-bulbtek-red group-hover:scale-110 transition-transform duration-200" />
+              <div className="text-left">
+                <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium leading-none">Hệ Thống</div>
+                <div className="text-xs font-bold text-bulbtek-red flex items-center space-x-1 mt-0.5">
+                  <span>Thương Hiệu Bulbtek</span>
+                  <span className="group-hover:translate-x-1 transition-transform duration-200">→</span>
+                </div>
+              </div>
             </button>
           </div>
         </div>
+      </div>
+
+      {/* TOOLBAR CONTROLS: 3 Button dữ liệu + 2 Icon Sao lưu/Phục hồi rút gọn */}
+      <div className={`p-3 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm ${
+        isLight ? 'bg-white border-slate-200' : 'bg-[#18181D] border-[#2A2A32]'
+      }`}>
+        {/* 3 Button: Tải biểu mẫu, Thêm SP hàng loạt, Tải dữ liệu */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Button 1: Tải biểu mẫu */}
+          <button
+            onClick={() => {
+              downloadTemplateExcel();
+              setBulkImportNotification({
+                message: 'Đã tải xuống biểu mẫu Excel chuẩn Bulbtek (Bulbtek_Mau_Nhap_San_Pham.xlsx)! Bạn hãy điền thông tin theo các cột mẫu rồi bấm "Thêm SP hàng loạt" để đưa vào kho.',
+                type: 'info'
+              });
+              setTimeout(() => setBulkImportNotification(null), 8000);
+            }}
+            className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition hover:shadow-sm ${
+              isLight 
+                ? 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800' 
+                : 'bg-blue-950/30 hover:bg-blue-900/40 border-blue-800/40 text-blue-400'
+            }`}
+            title="Tải biểu mẫu Excel chuẩn Bulbtek gồm 2 sheet: Danh sách SP mẫu và Hướng dẫn quy chuẩn các cột"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span>Tải biểu mẫu</span>
+          </button>
+
+          {/* Button 2: Thêm SP hàng loạt */}
+          <button
+            onClick={() => setShowBulkImportModal(true)}
+            className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition hover:shadow-sm ${
+              isLight 
+                ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800' 
+                : 'bg-emerald-950/30 hover:bg-emerald-900/40 border-emerald-800/40 text-emerald-400'
+            }`}
+            title="Nhập sản phẩm hàng loạt từ tệp Excel, CSV hoặc Google Drive / Sheets"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <span>Thêm SP hàng loạt</span>
+          </button>
+
+          {/* Button 3: Tải dữ liệu (Xuất ra File Google Sheet thông tin tất cả Cấu hình SP) */}
+          <button
+            onClick={() => {
+              try {
+                exportProductsToGoogleSheets(products);
+                setBulkImportNotification({
+                  message: `📊 Đã xuất thành công toàn bộ ${products.length} sản phẩm ra file tương thích Google Sheets! Bạn có thể tải lên Google Drive / Sheets để xem và quản lý trực tuyến.`,
+                  type: 'success'
+                });
+                setTimeout(() => setBulkImportNotification(null), 6000);
+              } catch (err) {
+                alert('Có lỗi xảy ra khi xuất file dữ liệu Google Sheets. Vui lòng thử lại!');
+              }
+            }}
+            className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition hover:shadow-sm ${
+              isLight 
+                ? 'bg-teal-50 hover:bg-teal-100 border-teal-200 text-teal-800' 
+                : 'bg-teal-950/30 hover:bg-teal-900/40 border-teal-800/40 text-teal-300'
+            }`}
+            title="Xuất toàn bộ cấu hình sản phẩm và thông số kỹ thuật ra File tương thích Google Sheets & Excel"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+            <span>Tải dữ liệu (Google Sheet)</span>
+          </button>
+        </div>
+
+        {/* 2 Sao lưu, Phục Hồi bố trí dạng icon rút gọn */}
+        <div className="flex items-center space-x-2 shrink-0">
+          <span className={`text-[11px] font-medium hidden sm:inline ${isLight ? 'text-slate-400' : 'text-gray-500'}`}>
+            Dữ liệu JSON:
+          </span>
+
+          {/* Input file ẩn phục hồi JSON */}
+          <input
+            type="file"
+            ref={jsonFileInputRef}
+            onChange={handleImportProductsJson}
+            accept=".json"
+            className="hidden"
+          />
+
+          {/* Icon Sao lưu */}
+          <button
+            onClick={handleExportProductsJson}
+            className={`p-2.5 rounded-xl border transition group relative flex items-center justify-center ${
+              isLight 
+                ? 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-700' 
+                : 'bg-amber-950/30 hover:bg-amber-900/40 border-amber-800/40 text-amber-400'
+            }`}
+            title="Sao lưu toàn bộ danh sách sản phẩm thành file .JSON"
+          >
+            <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            <span className="sr-only">Sao lưu (.JSON)</span>
+          </button>
+
+          {/* Icon Phục hồi */}
+          <button
+            onClick={() => jsonFileInputRef.current?.click()}
+            className={`p-2.5 rounded-xl border transition group relative flex items-center justify-center ${
+              isLight 
+                ? 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700' 
+                : 'bg-purple-950/30 hover:bg-purple-900/40 border-purple-800/40 text-purple-400'
+            }`}
+            title="Khôi phục lại danh sách sản phẩm từ file .JSON sao lưu"
+          >
+            <Upload className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            <span className="sr-only">Phục hồi (.JSON)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* DEDICATED ACTION ROW: "Nhập sản phẩm bằng AI" và "Thêm sản phẩm" được bố cục chung 1 hàng bên dưới với hiệu ứng motion nhẹ nhàng */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        {/* Nút 1: Nhập sản phẩm bằng AI */}
+        <button
+          type="button"
+          onClick={() => setShowAiImportModal(true)}
+          className="group relative overflow-hidden flex items-center justify-center space-x-2.5 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:via-indigo-500 hover:to-blue-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-indigo-500/20 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] cursor-pointer"
+          title="Thả link sản phẩm bất kỳ để AI tự động phân tích và trích xuất toàn bộ thông số kỹ thuật"
+        >
+          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          <Sparkles className="w-4 h-4 text-amber-300 animate-pulse group-hover:rotate-12 transition-transform duration-200 shrink-0" />
+          <span>✨ Nhập sản phẩm bằng AI</span>
+          <span className="text-[10px] sm:text-[11px] font-normal px-2 py-0.5 rounded-full bg-white/20 text-white/90 hidden sm:inline-block">
+            Tự động bóc tách link
+          </span>
+        </button>
+
+        {/* Nút 2: Thêm sản phẩm */}
+        <button
+          type="button"
+          onClick={handleAddNew}
+          className="group relative overflow-hidden flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-bulbtek-red hover:bg-bulbtek-red-hover text-white font-bold text-xs sm:text-sm shadow-md shadow-red-900/25 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] cursor-pointer"
+          title="Tạo mới sản phẩm thủ công bằng biểu mẫu chi tiết"
+        >
+          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200 shrink-0" />
+          <span>+ Thêm sản phẩm</span>
+          <span className="text-[10px] sm:text-[11px] font-normal px-2 py-0.5 rounded-full bg-white/20 text-white/90 hidden sm:inline-block">
+            Nhập form chi tiết
+          </span>
+        </button>
       </div>
 
       {/* Bulk Import Notification Toast / Banner */}

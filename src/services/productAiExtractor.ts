@@ -37,7 +37,9 @@ export function extractProductSpecsFromText(
 
   // 2. Xác định Dòng sản phẩm (Product Line)
   let productLine: ProductLine = 'Bi LED';
-  if (/bi\s*gầm|đèn\s*gầm|fog\s*light|bi\s*fog/i.test(lower)) {
+  if (/bi\s*laser|laser\s*projector|\blaser\b/i.test(lower)) {
+    productLine = 'Bi LASER';
+  } else if (/bi\s*gầm|đèn\s*gầm|fog\s*light|bi\s*fog/i.test(lower)) {
     productLine = 'Bi Gầm';
   } else if (/mini|bi\s*mini|len\s*mini|h4\s*mini/i.test(lower)) {
     productLine = 'Bi LED Mini';

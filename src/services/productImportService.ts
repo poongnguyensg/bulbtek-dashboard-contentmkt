@@ -39,6 +39,7 @@ const cleanKey = (str: string): string => {
  */
 const normalizeProductLine = (val: any): ProductLine => {
   const s = cleanKey(String(val || ''));
+  if (s.includes('bilaser') || s.includes('laser')) return 'Bi LASER';
   if (s.includes('biledmini') || s.includes('miniled') || s.includes('mini')) return 'Bi LED Mini';
   if (s.includes('bigam') || s.includes('fog') || s.includes('gam')) return 'Bi Gầm';
   if (s.includes('bongled') || s.includes('bong')) return 'Bóng LED';
@@ -595,7 +596,7 @@ export const downloadTemplateExcel = () => {
     {
       'Tên Cột': 'Dòng Sản Phẩm',
       'Bắt Buộc?': 'Tùy chọn',
-      'Các Giá Trị Hợp Lệ / Định Dạng': 'Bi LED | Bi Gầm | Bóng LED | Bi LED Mini | Trợ Sáng',
+      'Các Giá Trị Hợp Lệ / Định Dạng': 'Bi LED | Bi LASER | Bi Gầm | Bóng LED | Bi LED Mini | Trợ Sáng',
       'Ý Nghĩa Đối Với AI Content': 'Phân loại dòng sản phẩm trên thanh lọc và AI chọn từ vựng kỹ thuật'
     },
     {
@@ -781,5 +782,78 @@ export const downloadTemplateCsv = () => {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+};
+
+/**
+ * Xuất toàn bộ dữ liệu cấu hình sản phẩm ra file Excel (.xlsx) chuẩn cấu trúc tương thích Google Sheets
+ * Người dùng có thể nhập trực tiếp vào Google Sheets hoặc mở trên Microsoft Excel
+ */
+export const exportProductsToGoogleSheets = (products: Product[]) => {
+  const exportData = products.map((p, idx) => ({
+    'STT': idx + 1,
+    'Tên Sản Phẩm': p.name,
+    'Mã SKU': p.sku,
+    'Dòng Sản Phẩm': p.productLine,
+    'Trạng Thái': p.status,
+    'Giá Bán Lẻ': p.retailPrice || '',
+    'Sản Phẩm Phù Hợp': p.suitableFor || 'Xe ô tô',
+    'Đối Tượng Mục Tiêu': p.targetAudience || 'Cả hai',
+    'Phân Khúc': p.segment || 'Mid',
+    'Giai Đoạn': p.stage || 'Growth',
+    'Lợi Ích Cốt Lõi': p.coreBenefit || '',
+    'Chip LED': p.specs?.chipLed || '',
+    'Kích Thước Lens (inch)': p.specs?.sizeInch || '',
+    'Chuẩn Kháng Nước': p.specs?.waterproof || '',
+    'Nhiệt Màu': p.specs?.colorTemp || '',
+    'Độ Sáng': p.specs?.brightness || '',
+    'Công Suất': p.specs?.power || '',
+    'Điện Áp': p.specs?.voltage || '',
+    'Tuổi Thọ': p.specs?.lifespan || '',
+    'Bảo Hành': p.specs?.warranty || '',
+    'Tương Thích Xe': p.specs?.compatibility || '',
+    'Tính Năng Đặc Biệt': p.specs?.specialFeatures || '',
+    'Ghi Chú Nội Bộ': p.internalNotes || '',
+    'Link Ảnh': p.imageUrl || '',
+    'Trạng Thái Hiển Thị': p.isHidden ? 'Đang ẩn' : 'Hiển thị',
+    'Ngày Tạo': p.createdAt ? new Date(p.createdAt).toLocaleDateString('vi-VN') : '',
+    'Cập Nhật Cuối': p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('vi-VN') : ''
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  ws['!cols'] = [
+    { wch: 6 },  // STT
+    { wch: 32 }, // Tên Sản Phẩm
+    { wch: 18 }, // Mã SKU
+    { wch: 18 }, // Dòng Sản Phẩm
+    { wch: 18 }, // Trạng Thái
+    { wch: 16 }, // Giá Bán Lẻ
+    { wch: 18 }, // Sản Phẩm Phù Hợp
+    { wch: 20 }, // Đối Tượng Mục Tiêu
+    { wch: 14 }, // Phân Khúc
+    { wch: 14 }, // Giai Đoạn
+    { wch: 45 }, // Lợi Ích Cốt Lõi
+    { wch: 28 }, // Chip LED
+    { wch: 18 }, // Kích Thước Lens (inch)
+    { wch: 18 }, // Chuẩn Kháng Nước
+    { wch: 24 }, // Nhiệt Màu
+    { wch: 20 }, // Độ Sáng
+    { wch: 20 }, // Công Suất
+    { wch: 16 }, // Điện Áp
+    { wch: 16 }, // Tuổi Thọ
+    { wch: 20 }, // Bảo Hành
+    { wch: 32 }, // Tương Thích Xe
+    { wch: 35 }, // Tính Năng Đặc Biệt
+    { wch: 30 }, // Ghi Chú Nội Bộ
+    { wch: 35 }, // Link Ảnh
+    { wch: 18 }, // Trạng Thái Hiển Thị
+    { wch: 14 }, // Ngày Tạo
+    { wch: 14 }  // Cập Nhật Cuối
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'DuLieu_CauHinh_SanPham');
+  
+  const today = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `Bulbtek_DuLieu_CauHinh_SanPham_${today}.xlsx`);
 };
 

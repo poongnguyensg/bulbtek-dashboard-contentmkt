@@ -813,10 +813,10 @@ export const downloadTemplateCsv = () => {
 };
 
 /**
- * Xuất toàn bộ dữ liệu cấu hình sản phẩm ra file Excel (.xlsx) chuẩn cấu trúc tương thích Google Sheets
- * Người dùng có thể nhập trực tiếp vào Google Sheets hoặc mở trên Microsoft Excel
+ * Xuất toàn bộ dữ liệu cấu hình sản phẩm ra file Excel (.xlsx) chuẩn
+ * Người dùng có thể mở và chỉnh sửa trực tiếp trên Microsoft Excel hoặc tải lên Google Sheets
  */
-export const exportProductsToGoogleSheets = (products: Product[]) => {
+export const exportProductsToExcel = (products: Product[]) => {
   if (!products || !Array.isArray(products) || products.length === 0) {
     throw new Error('Danh sách sản phẩm trống, chưa có dữ liệu để xuất.');
   }
@@ -888,4 +888,6 @@ export const exportProductsToGoogleSheets = (products: Product[]) => {
   const today = new Date().toISOString().slice(0, 10);
   saveWorkbookInBrowser(wb, `Bulbtek_DuLieu_CauHinh_SanPham_${today}.xlsx`);
 };
+
+export const exportProductsToGoogleSheets = exportProductsToExcel;
 

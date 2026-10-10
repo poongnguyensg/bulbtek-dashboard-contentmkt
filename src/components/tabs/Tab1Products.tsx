@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { BulkProductImportModal } from '../modals/BulkProductImportModal';
 import { AiProductImportModal } from '../modals/AiProductImportModal';
-import { downloadTemplateExcel, exportProductsToGoogleSheets } from '../../services/productImportService';
+import { downloadTemplateExcel, exportProductsToExcel } from '../../services/productImportService';
 import { uploadImageFile } from '../../services/api';
 
 const PRODUCT_LINES: ProductLine[] = [
@@ -475,7 +475,7 @@ export const Tab1Products: React.FC = () => {
             <span>Thêm SP hàng loạt</span>
           </button>
 
-          {/* Button 3: Tải dữ liệu (Xuất ra File Google Sheet thông tin tất cả Cấu hình SP) */}
+          {/* Button 3: Tải dữ liệu (Xuất ra File Excel thông tin tất cả Cấu hình SP) */}
           <button
             onClick={() => {
               try {
@@ -483,26 +483,26 @@ export const Tab1Products: React.FC = () => {
                   alert('Chưa có sản phẩm nào trong hệ thống để xuất file!');
                   return;
                 }
-                exportProductsToGoogleSheets(products);
+                exportProductsToExcel(products);
                 setBulkImportNotification({
-                  message: `📊 Đã xuất thành công toàn bộ ${products.length} sản phẩm ra file tương thích Google Sheets (.xlsx)! Bạn có thể tải lên Google Drive / Sheets để xem và quản lý trực tuyến.`,
+                  message: `📊 Đã xuất thành công toàn bộ ${products.length} sản phẩm ra file Excel (.xlsx)! Bạn có thể mở trực tiếp bằng Microsoft Excel.`,
                   type: 'success'
                 });
                 setTimeout(() => setBulkImportNotification(null), 6000);
               } catch (err: any) {
-                console.error('Lỗi khi xuất dữ liệu Google Sheets:', err);
+                console.error('Lỗi khi xuất dữ liệu Excel:', err);
                 alert(`Có lỗi xảy ra khi xuất file dữ liệu: ${err?.message || err}`);
               }
             }}
             className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition hover:shadow-sm ${
               isLight 
-                ? 'bg-teal-50 hover:bg-teal-100 border-teal-200 text-teal-800' 
-                : 'bg-teal-950/30 hover:bg-teal-900/40 border-teal-800/40 text-teal-300'
+                ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800' 
+                : 'bg-emerald-950/30 hover:bg-emerald-900/40 border-emerald-800/40 text-emerald-300'
             }`}
-            title="Xuất toàn bộ cấu hình sản phẩm và thông số kỹ thuật ra File tương thích Google Sheets & Excel"
+            title="Xuất toàn bộ cấu hình sản phẩm và thông số kỹ thuật ra file Excel (.xlsx)"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-            <span>Tải dữ liệu (Google Sheet)</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <span>Tải dữ liệu (Excel)</span>
           </button>
         </div>
 
